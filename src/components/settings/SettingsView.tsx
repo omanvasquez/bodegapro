@@ -21,29 +21,45 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenAbout, onOpenSuperAdmin }) => {
-  const { tenant, isSuperAdmin, trialDaysRemaining } = useAuth();
+  const { tenant, isSuperAdmin, trialDaysRemaining, updateTenantProfile } = useAuth();
   const { rates, setManualOverride, refreshRates, isLoading } = useCurrency();
 
-  const [storeName, setStoreName] = useState<string>(tenant.name);
-  const [ownerName, setOwnerName] = useState<string>(tenant.ownerName);
-  const [phone, setPhone] = useState<string>(tenant.phone);
+  const [storeName, setStoreName] = useState<string>(tenant?.name || '');
+  const [ownerName, setOwnerName] = useState<string>(tenant?.ownerName || '');
+  const [phone, setPhone] = useState<string>(tenant?.phone || '');
   const [isSavedNotice, setIsSavedNotice] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  // Sync state if tenant updates from Firebase or local storage
+  React.useEffect(() => {
+    if (tenant) {
+      setStoreName(tenant.name);
+      setOwnerName(tenant.ownerName);
+      setPhone(tenant.phone);
+    }
+  }, [tenant?.name, tenant?.ownerName, tenant?.phone]);
 
   // Rate override
   const [manualRateActive, setManualRateActive] = useState<boolean>(rates.manualOverride.active);
   const [manualRateVal, setManualRateVal] = useState<string>(rates.manualOverride.rate.toString());
 
-  const handleSaveBusiness = (e: React.FormEvent) => {
+  const handleSaveBusiness = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = {
-      ...tenant,
-      name: storeName.trim() || tenant.name,
-      ownerName: ownerName.trim() || tenant.ownerName,
-      phone: phone.trim() || tenant.phone,
-    };
-    dbInit.saveTenant(updated);
-    setIsSavedNotice(true);
-    setTimeout(() => setIsSavedNotice(false), 3000);
+    if (!tenant) return;
+    setIsSaving(true);
+    try {
+      await updateTenantProfile({
+        name: storeName.trim() || tenant.name,
+        ownerName: ownerName.trim() || tenant.ownerName,
+        phone: phone.trim() || tenant.phone,
+      });
+      setIsSavedNotice(true);
+      setTimeout(() => setIsSavedNotice(false), 3000);
+    } catch (err) {
+      console.error('Error guardando negocio:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSaveRateOverride = () => {
@@ -163,10 +179,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenAbout, onOpenS
               <div className="ml-auto">
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-brand-slate-900 hover:bg-brand-slate-800 text-white font-bold text-xs flex items-center space-x-1.5 transition shadow-sm"
+                  disabled={isSaving}
+                  className="px-5 py-2 rounded-xl bg-brand-slate-900 hover:bg-brand-slate-800 disabled:opacity-50 text-white font-bold text-xs flex items-center space-x-1.5 transition shadow-sm"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  <span>Guardar Cambios</span>
+                  <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
                 </button>
               </div>
             </div>

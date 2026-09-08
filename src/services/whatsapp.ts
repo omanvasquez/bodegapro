@@ -105,8 +105,18 @@ export function generateDailyClosingWhatsApp(
     creditIssuedUSD: number;
     creditCollectedUSD: number;
   },
-  storeName: string
+  storeName: string,
+  productsSold?: { name: string; quantity: number; unit: string; totalUSD: number }[]
 ): string {
+  let productsBlock = '';
+  if (productsSold && productsSold.length > 0) {
+    const list = productsSold
+      .slice(0, 15) // Top 15 productos
+      .map((p) => `• ${p.quantity} ${p.unit} × ${p.name} ($${p.totalUSD.toFixed(2)})`)
+      .join('\n');
+    productsBlock = `\n\n🛒 *Salida de Mercancía Hoy (${productsSold.length}):*\n${list}${productsSold.length > 15 ? '\n• ...y otros más' : ''}`;
+  }
+
   const text = `📊 *CIERRE DIARIO - ${storeName}*
 📅 Fecha: ${summary.date}
 
@@ -121,7 +131,7 @@ export function generateDailyClosingWhatsApp(
 
 📝 *Balance de Fiados:*
 - Fiados concedidos hoy: $${summary.creditIssuedUSD.toFixed(2)}
-- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}
+- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}${productsBlock}
 
 Generado automáticamente por BodegaPro.`;
 

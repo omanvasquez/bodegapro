@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   BarChart3, 
   Calendar, 
@@ -12,7 +12,10 @@ import {
   Smartphone, 
   Banknote, 
   CreditCard, 
-  BookOpen 
+  BookOpen,
+  Package,
+  Receipt,
+  Clock
 } from 'lucide-react';
 import { useReports } from '../../context/ReportsContext';
 import { useInventory } from '../../context/InventoryContext';
@@ -21,12 +24,61 @@ import { useAuth } from '../../context/AuthContext';
 import { generateDailyClosingWhatsApp, openWhatsAppLink } from '../../services/whatsapp';
 
 export const ReportsView: React.FC = () => {
-  const { dailySummary, weeklySalesData, topSellingProducts, monthlySummary } = useReports();
+  const { dailySummary, weeklySalesData, topSellingProducts, monthlySummary, sales } = useReports();
   const { products } = useInventory();
   const { effectiveRate } = useCurrency();
   const { tenant } = useAuth();
 
   const [activeReportTab, setActiveReportTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets'>('products');
+
+  // Ventas de hoy
+  const todaySales = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = today.getTime();
+    return sales.filter((s) => s.timestamp >= startOfToday);
+  }, [sales]);
+
+  // Consolidado de productos que han salido en el día
+  const todayProductsSummary = useMemo(() => {
+    const map = new Map<string, {
+      name: string;
+      unit: string;
+      quantity: number;
+      totalUSD: number;
+      totalVES: number;
+      ticketsCount: number;
+    }>();
+
+    todaySales.forEach((ticket) => {
+      ticket.items.forEach((item) => {
+        const key = item.productId || item.productName;
+        const existing = map.get(key);
+        if (existing) {
+          existing.quantity = Math.round((existing.quantity + item.quantity) * 1000) / 1000;
+          existing.totalUSD = Math.round((existing.totalUSD + item.totalUSD) * 100) / 100;
+          existing.totalVES = Math.round((existing.totalVES + item.totalVES) * 100) / 100;
+          existing.ticketsCount += 1;
+        } else {
+          map.set(key, {
+            name: item.productName,
+            unit: item.unit,
+            quantity: item.quantity,
+            totalUSD: item.totalUSD,
+            totalVES: item.totalVES,
+            ticketsCount: 1,
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
+  }, [todaySales]);
+
+  const totalItemsSoldToday = useMemo(() => {
+    return Math.round(todayProductsSummary.reduce((acc, p) => acc + p.quantity, 0) * 100) / 100;
+  }, [todayProductsSummary]);
 
   // Total inventory valuation at replacement cost
   const inventoryValuationUSD = Math.round(
@@ -34,8 +86,12 @@ export const ReportsView: React.FC = () => {
   ) / 100;
 
   const handleShareDailyWhatsApp = () => {
-    const text = generateDailyClosingWhatsApp(dailySummary, tenant.name);
-    openWhatsAppLink(tenant.phone, text);
+    const text = generateDailyClosingWhatsApp(
+      dailySummary, 
+      tenant?.name || 'BodegaPro',
+      todayProductsSummary
+    );
+    openWhatsAppLink(tenant?.phone || '', text);
   };
 
   const maxWeeklyUSD = Math.max(...weeklySalesData.map((d) => d.totalUSD), 10);
@@ -250,6 +306,201 @@ export const ReportsView: React.FC = () => {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Historial de Salida de Mercancía y Ventas del Día */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-black text-sm sm:text-base text-slate-900 tracking-tight flex items-center space-x-2">
+                    <Package className="w-5 h-5 text-brand-emerald-600" />
+                    <span>Salida de Mercancía e Historial de Hoy</span>
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Control diario de artículos despachados y tickets cobrados en la jornada.
+                  </p>
+                </div>
+
+                {/* Switcher entre Productos Salidos y Registro de Tickets */}
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setDailyHistoryView('products')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                      dailyHistoryView === 'products'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Package className="w-3.5 h-3.5 text-brand-emerald-600" />
+                    <span>Productos Salidos ({todayProductsSummary.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDailyHistoryView('tickets')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                      dailyHistoryView === 'tickets'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Tickets ({todaySales.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* VISTA 1: PRODUCTOS VENDIDOS / SALIDA DE MERCANCÍA */}
+              {dailyHistoryView === 'products' && (
+                <div className="space-y-3">
+                  {todayProductsSummary.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-1">
+                      <Layers className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs font-semibold">No se han registrado ventas de productos el día de hoy.</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                        <span>Total despachado hoy:</span>
+                        <span className="text-brand-emerald-700 font-black">
+                          {totalItemsSoldToday} unidades / artículos en total
+                        </span>
+                      </div>
+
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                        {todayProductsSummary.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-3 bg-white hover:bg-slate-50/80 transition flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <h5 className="font-bold text-xs sm:text-sm text-slate-800 truncate">
+                                {item.name}
+                              </h5>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                Presente en {item.ticketsCount} {item.ticketsCount === 1 ? 'ticket' : 'tickets'} hoy
+                              </span>
+                            </div>
+
+                            <div className="flex items-center space-x-3 shrink-0">
+                              <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-black text-xs sm:text-sm border border-emerald-200">
+                                {item.quantity} {item.unit}
+                              </span>
+                              <div className="text-right min-w-[70px]">
+                                <span className="font-black text-xs sm:text-sm text-slate-900 block">
+                                  ${item.totalUSD.toFixed(2)}
+                                </span>
+                                <span className="text-[10px] text-slate-500 font-medium block">
+                                  Bs {item.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* VISTA 2: TICKETS INDIVIDUALES */}
+              {dailyHistoryView === 'tickets' && (
+                <div className="space-y-2.5">
+                  {todaySales.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-1">
+                      <Receipt className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs font-semibold">No se han emitido tickets el día de hoy.</p>
+                    </div>
+                  ) : (
+                    todaySales.map((ticket) => {
+                      const timeStr = new Date(ticket.timestamp).toLocaleTimeString('es-VE', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                      });
+
+                      return (
+                        <div
+                          key={ticket.id}
+                          className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2 hover:bg-slate-50 transition"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-black text-xs sm:text-sm text-slate-900">
+                                  Ticket #{ticket.ticketNumber}
+                                </span>
+                                <span className="text-[10px] bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  <span>{timeStr}</span>
+                                </span>
+                                {ticket.customerName && (
+                                  <span className="text-[10px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                                    {ticket.customerName}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-400 block mt-0.5">
+                                Atendido por: {ticket.cashierName || 'Cajero'}
+                              </span>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="font-black text-sm sm:text-base text-slate-900 block">
+                                ${ticket.totalUSD.toFixed(2)}
+                              </span>
+                              <span className="text-[11px] text-brand-emerald-600 font-bold block">
+                                Bs {ticket.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* List of items in this ticket */}
+                          <div className="pt-2 border-t border-slate-200/60 space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Artículos ({ticket.items.length}):
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-slate-700">
+                              {ticket.items.map((item, i) => (
+                                <div key={i} className="flex items-baseline justify-between bg-white px-2 py-1 rounded-lg border border-slate-200/50">
+                                  <span className="truncate pr-2 font-medium">
+                                    <strong className="text-brand-emerald-700">{item.quantity} {item.unit}</strong> × {item.productName}
+                                  </span>
+                                  <span className="shrink-0 font-bold text-[11px] text-slate-600">
+                                    ${item.totalUSD.toFixed(2)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Payment split badges */}
+                          <div className="pt-1.5 flex flex-wrap items-center gap-1.5">
+                            {ticket.payments.map((p, pIdx) => {
+                              const methodLabels: Record<string, { label: string; bg: string; text: string }> = {
+                                usd_cash: { label: 'Efectivo $', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+                                ves_cash: { label: 'Efectivo Bs', bg: 'bg-blue-100', text: 'text-blue-800' },
+                                pago_movil: { label: 'Pago Móvil', bg: 'bg-indigo-100', text: 'text-indigo-800' },
+                                punto_venta: { label: 'Punto', bg: 'bg-amber-100', text: 'text-amber-800' },
+                                fiado: { label: 'Fiado', bg: 'bg-rose-100', text: 'text-rose-800' },
+                              };
+                              const meta = methodLabels[p.method] || { label: p.method, bg: 'bg-slate-100', text: 'text-slate-800' };
+                              return (
+                                <span
+                                  key={pIdx}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${meta.bg} ${meta.text}`}
+                                >
+                                  {meta.label}: ${p.amountUSD.toFixed(2)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

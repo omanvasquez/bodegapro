@@ -28,6 +28,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   registerTenant: (data: { name: string; ownerName: string; phone: string }) => Promise<void>;
+  updateTenantProfile: (data: { name: string; ownerName: string; phone: string }) => Promise<void>;
   updateTenantStatus: (tenantId: string, newStatus: TenantStatus, trialDays?: number) => Promise<void>;
   allTenantsForSuperadmin: Tenant[];
 }
@@ -126,16 +127,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Caso 1: Es Superadmin (Oman)
         if (email === SUPERADMIN_EMAIL.toLowerCase()) {
-          // Asignar su tenant por defecto
+          const localSavedTenant = dbInit.getTenant();
           const adminDefaultTenant: Tenant = {
-            id: 'tenant_cojedes_01',
-            name: 'Bodega y Víveres Don Pedro',
-            ownerName: 'Oman Vásquez',
+            id: localSavedTenant?.id || 'tenant_cojedes_01',
+            name: localSavedTenant?.name || 'Bodega y Víveres Don Pedro',
+            ownerName: localSavedTenant?.ownerName || 'Oman Vásquez',
             ownerEmail: 'omanjrvasquez@gmail.com',
-            phone: '04124169949',
+            phone: localSavedTenant?.phone || '04124169949',
             status: 'activo',
-            trialEndsAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
-            createdAt: Date.now(),
+            trialEndsAt: localSavedTenant?.trialEndsAt || (Date.now() + 365 * 24 * 60 * 60 * 1000),
+            createdAt: localSavedTenant?.createdAt || Date.now(),
           };
           setCurrentTenant(adminDefaultTenant);
 
@@ -156,6 +157,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 cloudTenants.forEach((t) => map.set(t.id, t));
                 const merged = Array.from(map.values());
                 saveTenants(merged);
+
+                // Si existe el tenant del superadmin en cloud, sincronizarlo
+                const adminCloud = cloudTenants.find(
+                  (t) => t.ownerEmail.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase() || t.id === 'tenant_cojedes_01'
+                );
+                if (adminCloud) {
+                  setCurrentTenant(adminCloud);
+                  dbInit.saveTenant(adminCloud);
+                }
               }
             }, (error) => {
               console.warn('Error escuchando tenants en Firestore:', error);
@@ -309,6 +319,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Actualizar perfil de la bodega (nombre comercial, dueño, teléfono)
+  const updateTenantProfile = async (data: { name: string; ownerName: string; phone: string }) => {
+    if (!currentTenant) return;
+
+    const updated: Tenant = {
+      ...currentTenant,
+      name: data.name.trim() || currentTenant.name,
+      ownerName: data.ownerName.trim() || currentTenant.ownerName,
+      phone: data.phone.trim() || currentTenant.phone,
+    };
+
+    // 1. Actualizar estado local inmediatamente
+    setCurrentTenant(updated);
+    dbInit.saveTenant(updated);
+
+    // 2. Actualizar registro local de tenants
+    const nextList = tenantsList.map((t) => (t.id === updated.id ? updated : t));
+    if (!nextList.some((t) => t.id === updated.id)) {
+      nextList.push(updated);
+    }
+    saveTenants(nextList);
+
+    // 3. Persistir en Firestore en la nube
+    if (db && updated.id) {
+      try {
+        await setDoc(doc(db, 'tenants', updated.id), updated, { merge: true });
+      } catch (err) {
+        console.warn('Error al persistir perfil de bodega en Firestore:', err);
+      }
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -323,6 +365,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         logout,
         registerTenant,
+        updateTenantProfile,
         updateTenantStatus,
         allTenantsForSuperadmin: tenantsList,
       }}
