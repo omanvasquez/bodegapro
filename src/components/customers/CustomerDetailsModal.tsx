@@ -1,5 +1,17 @@
-import React from 'react';
-import { X, User, Phone, DollarSign, Calendar, ArrowUpRight, ArrowDownLeft, MessageCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  User, 
+  Phone, 
+  DollarSign, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  MessageCircle, 
+  Pencil, 
+  Trash2, 
+  AlertTriangle, 
+  Check 
+} from 'lucide-react';
 import { Customer } from '../../types';
 import { useCustomers } from '../../context/CustomersContext';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -10,16 +22,36 @@ interface CustomerDetailsModalProps {
   customer: Customer | null;
   onClose: () => void;
   onOpenPayment: () => void;
+  onEditCustomer?: (customer: Customer) => void;
+  onDeleteCustomer?: (customerId: string) => void;
 }
 
 export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
   customer,
   onClose,
   onOpenPayment,
+  onEditCustomer,
+  onDeleteCustomer,
 }) => {
-  const { getCustomerTransactions } = useCustomers();
+  const { getCustomerTransactions, updateCustomer, deleteCustomer } = useCustomers();
   const { toVES, effectiveRate } = useCurrency();
   const { tenant } = useAuth();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(customer?.name || '');
+  const [editPhone, setEditPhone] = useState(customer?.phone || '');
+  const [editLimit, setEditLimit] = useState(customer?.creditLimitUSD.toString() || '30');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    if (customer) {
+      setEditName(customer.name);
+      setEditPhone(customer.phone);
+      setEditLimit(customer.creditLimitUSD.toString());
+      setIsEditing(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [customer?.id]);
 
   if (!customer) return null;
 
@@ -36,12 +68,44 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
     openWhatsAppLink(customer.phone, text);
   };
 
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) return;
+
+    const parsedLimit = parseFloat(editLimit) || 0;
+    updateCustomer(customer.id, {
+      name: editName.trim(),
+      phone: editPhone.trim(),
+      creditLimitUSD: parsedLimit,
+    });
+
+    if (onEditCustomer) {
+      onEditCustomer({
+        ...customer,
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        creditLimitUSD: parsedLimit,
+      });
+    }
+
+    setIsEditing(false);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteCustomer(customer.id);
+    if (onDeleteCustomer) {
+      onDeleteCustomer(customer.id);
+    }
+    setShowDeleteConfirm(false);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden flex flex-col max-h-[85vh]">
         
         {/* Header */}
-        <div className="bg-brand-slate-900 text-white p-5 flex items-center justify-between">
+        <div className="bg-brand-slate-900 text-white p-4 sm:p-5 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300">
               <User className="w-5 h-5" />
@@ -54,63 +118,205 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
 
-        {/* Debt & Balance Cards */}
-        <div className="p-4 grid grid-cols-2 gap-3 bg-slate-50 border-b border-slate-200">
-          <div className="p-3 bg-white rounded-xl border border-rose-200 shadow-sm">
-            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
-              Deuda Pendiente (USD)
-            </span>
-            <span className="text-xl font-black text-rose-600 block">
-              ${customer.currentDebtUSD.toFixed(2)}
-            </span>
-            <span className="text-[11px] text-slate-400 font-semibold">
-              Bs {toVES(customer.currentDebtUSD).toFixed(2)}
-            </span>
-          </div>
-
-          <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                Saldo a Favor
-              </span>
-              <span className="text-xl font-black text-brand-emerald-600 block">
-                ${customer.positiveBalanceUSD.toFixed(2)}
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-400">
-              Límite: ${customer.creditLimitUSD.toFixed(2)}
-            </span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="p-3 bg-white border-b border-slate-100 flex items-center justify-between gap-2">
-          {customer.currentDebtUSD > 0 && (
+          <div className="flex items-center space-x-1">
             <button
-              onClick={handleSendReminder}
-              className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 transition"
+              onClick={() => {
+                setEditName(customer.name);
+                setEditPhone(customer.phone);
+                setEditLimit(customer.creditLimitUSD.toString());
+                setIsEditing(!isEditing);
+                setShowDeleteConfirm(false);
+              }}
+              title={isEditing ? 'Cancelar edición' : 'Editar cliente'}
+              className={`p-1.5 rounded-lg transition ${
+                isEditing 
+                  ? 'bg-brand-emerald-500 text-white' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
             >
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Recordar por WhatsApp</span>
+              <Pencil className="w-4 h-4" />
             </button>
-          )}
 
-          <button
-            onClick={() => {
-              onClose();
-              onOpenPayment();
-            }}
-            className="flex-1 py-2 px-3 bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-1 shadow-sm transition"
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Registrar Abono</span>
-          </button>
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(true);
+                setIsEditing(false);
+              }}
+              title="Eliminar cliente"
+              className="p-1.5 text-rose-400 hover:text-rose-300 rounded-lg hover:bg-rose-950/40 transition"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
+            <button 
+              onClick={onClose} 
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition ml-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Delete Confirmation Alert Banner */}
+        {showDeleteConfirm && (
+          <div className="p-4 bg-rose-50 border-b border-rose-200 shrink-0">
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-xs text-rose-900">
+                  ¿Estás seguro de eliminar a {customer.name}?
+                </h4>
+                {customer.currentDebtUSD > 0 ? (
+                  <p className="text-[11px] text-rose-700 mt-1">
+                    ⚠️ <strong>Atención:</strong> Este cliente tiene una deuda pendiente de <strong>${customer.currentDebtUSD.toFixed(2)} (Bs {toVES(customer.currentDebtUSD).toFixed(2)})</strong>. Al eliminarlo, desaparecerá de la lista de fiados activos.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    El cliente será removido de tu lista de fiados.
+                  </p>
+                )}
+                <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                  ℹ️ <strong>Tus reportes de ventas pasadas y ganancias NO se descuadran</strong> (se mantienen inmutables).
+                </p>
+                <div className="flex items-center space-x-2 mt-2.5">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-3 py-1 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmDelete}
+                    className="px-3 py-1 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-sm"
+                  >
+                    Sí, eliminar cliente
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Form when editing */}
+        {isEditing ? (
+          <form onSubmit={handleSaveEdit} className="p-5 space-y-3.5 overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider">
+                Editar Datos del Cliente
+              </h4>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Nombre Completo *</label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Teléfono (WhatsApp)</label>
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="04121234567"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Límite de Crédito Fiado ($ USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={editLimit}
+                onChange={(e) => setEditLimit(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+              />
+              <p className="text-[10px] text-slate-400">
+                Tope máximo permitido para fiar a este cliente.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                className="py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="py-2 rounded-xl bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-1 shadow-sm transition"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Guardar Cambios</span>
+              </button>
+            </div>
+          </form>
+        ) : (
+          <>
+            {/* Debt & Balance Cards */}
+            <div className="p-4 grid grid-cols-2 gap-3 bg-slate-50 border-b border-slate-200 shrink-0">
+              <div className="p-3 bg-white rounded-xl border border-rose-200 shadow-sm">
+                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-wider block">
+                  Deuda Pendiente (USD)
+                </span>
+                <span className="text-xl font-black text-rose-600 block">
+                  ${customer.currentDebtUSD.toFixed(2)}
+                </span>
+                <span className="text-[11px] text-slate-400 font-semibold">
+                  Bs {toVES(customer.currentDebtUSD).toFixed(2)}
+                </span>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Saldo a Favor
+                  </span>
+                  <span className="text-xl font-black text-brand-emerald-600 block">
+                    ${customer.positiveBalanceUSD.toFixed(2)}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400">
+                  Límite: ${customer.creditLimitUSD.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="p-3 bg-white border-b border-slate-100 flex items-center justify-between gap-2 shrink-0">
+              {customer.currentDebtUSD > 0 && (
+                <button
+                  onClick={handleSendReminder}
+                  className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 transition"
+                >
+                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Recordar por WhatsApp</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenPayment();
+                }}
+                className="flex-1 py-2 px-3 bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold rounded-xl flex items-center justify-center space-x-1 shadow-sm transition"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Registrar Abono</span>
+              </button>
+            </div>
 
         {/* Immutable History List (Micro-ledger) */}
         <div className="flex-1 p-4 overflow-y-auto space-y-2.5">
@@ -172,7 +378,9 @@ export const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
             })
           )}
         </div>
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+</div>
+);
 };

@@ -9,7 +9,9 @@ import {
   AlertCircle, 
   CheckCircle2, 
   History, 
-  Star 
+  Star,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { Customer } from '../../types';
 import { useCustomers } from '../../context/CustomersContext';
@@ -18,13 +20,26 @@ import { PaymentModal } from './PaymentModal';
 import { CustomerDetailsModal } from './CustomerDetailsModal';
 
 export const CustomersView: React.FC = () => {
-  const { customers, addCustomer } = useCustomers();
+  const { customers, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const { toVES } = useCurrency();
 
   const [search, setSearch] = useState<string>('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const selectedCustomer = useMemo(
+    () => customers.find((c) => c.id === selectedCustomerId) || null,
+    [customers, selectedCustomerId]
+  );
   const [customerForPayment, setCustomerForPayment] = useState<Customer | null>(null);
   const [isNewCustomerModalOpen, setIsNewCustomerModalOpen] = useState<boolean>(false);
+
+  // Edit customer state
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState<string>('');
+  const [editPhone, setEditPhone] = useState<string>('');
+  const [editLimit, setEditLimit] = useState<string>('30');
+
+  // Delete customer state
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
 
   // New customer form state
   const [newName, setNewName] = useState<string>('');
@@ -53,6 +68,33 @@ export const CustomersView: React.FC = () => {
     setNewPhone('');
     setNewLimit('30');
     setIsNewCustomerModalOpen(false);
+  };
+
+  const handleStartEdit = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setEditName(customer.name);
+    setEditPhone(customer.phone);
+    setEditLimit(customer.creditLimitUSD.toString());
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer || !editName.trim()) return;
+    updateCustomer(editingCustomer.id, {
+      name: editName.trim(),
+      phone: editPhone.trim(),
+      creditLimitUSD: parseFloat(editLimit) || 0,
+    });
+    setEditingCustomer(null);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deletingCustomer) return;
+    deleteCustomer(deletingCustomer.id);
+    if (selectedCustomerId === deletingCustomer.id) {
+      setSelectedCustomerId(null);
+    }
+    setDeletingCustomer(null);
   };
 
   return (
@@ -147,13 +189,35 @@ export const CustomersView: React.FC = () => {
                       </p>
                     </div>
 
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                        hasDebt ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}
-                    >
-                      {hasDebt ? 'Con Deuda' : 'Al Día'}
-                    </span>
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          hasDebt ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                        }`}
+                      >
+                        {hasDebt ? 'Con Deuda' : 'Al Día'}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEdit(customer);
+                        }}
+                        title="Editar datos del cliente"
+                        className="p-1 text-slate-400 hover:text-brand-emerald-600 hover:bg-slate-100 rounded-lg transition"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingCustomer(customer);
+                        }}
+                        title="Eliminar cliente"
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Balance details */}
@@ -183,7 +247,7 @@ export const CustomersView: React.FC = () => {
                 {/* Quick actions */}
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
                   <button
-                    onClick={() => setSelectedCustomer(customer)}
+                    onClick={() => setSelectedCustomerId(customer.id)}
                     className="flex-1 py-1.5 px-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition flex items-center justify-center space-x-1"
                   >
                     <History className="w-3.5 h-3.5 text-slate-400" />
@@ -208,8 +272,9 @@ export const CustomersView: React.FC = () => {
       {selectedCustomer && (
         <CustomerDetailsModal
           customer={selectedCustomer}
-          onClose={() => setSelectedCustomer(null)}
+          onClose={() => setSelectedCustomerId(null)}
           onOpenPayment={() => setCustomerForPayment(selectedCustomer)}
+          onDeleteCustomer={() => setSelectedCustomerId(null)}
         />
       )}
 
@@ -284,6 +349,116 @@ export const CustomersView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <h3 className="font-bold text-base text-slate-900">Editar Cliente</h3>
+            
+            <form onSubmit={handleSaveEdit} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Nombre Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Teléfono (WhatsApp)</label>
+                <input
+                  type="tel"
+                  placeholder="04121234567"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-semibold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700">Límite Máximo de Crédito ($ USD)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editLimit}
+                  onChange={(e) => setEditLimit(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 font-bold focus:ring-2 focus:ring-brand-emerald-500 focus:outline-none"
+                />
+                <span className="text-[10px] text-slate-400">
+                  Bloquea automáticamente nuevas ventas a crédito si supera este tope.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingCustomer(null)}
+                  className="py-2 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="py-2 rounded-xl bg-brand-emerald-600 text-white font-bold hover:bg-brand-emerald-700 transition"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">¿Eliminar Cliente?</h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  ¿Estás seguro de eliminar a <strong>{deletingCustomer.name}</strong>?
+                </p>
+              </div>
+            </div>
+
+            {deletingCustomer.currentDebtUSD > 0 && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                ⚠️ <strong>Atención:</strong> Este cliente tiene una deuda pendiente de <strong>${deletingCustomer.currentDebtUSD.toFixed(2)} (Bs {toVES(deletingCustomer.currentDebtUSD).toFixed(2)})</strong>. Al eliminarlo, ya no figurará en la lista de fiados activos.
+              </div>
+            )}
+
+            <p className="text-[11px] text-slate-500">
+              ℹ️ Tus reportes históricos de ventas e ingresos mensuales <strong>no se descuadran</strong> ni se alteran (los tickets pasados son inmutables).
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingCustomer(null)}
+                className="py-2 rounded-xl border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="py-2 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 transition shadow-sm"
+              >
+                Sí, eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}

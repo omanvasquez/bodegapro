@@ -95,11 +95,27 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setFiadoUSD('');
   };
 
+  const fillExactVESCash = () => {
+    setVesCash(totalVES.toFixed(2));
+    setUsdCash('');
+    setPagoMovil('');
+    setPuntoVenta('');
+    setFiadoUSD('');
+  };
+
   const fillExactPagoMovil = () => {
     setPagoMovil(totalVES.toFixed(2));
     setUsdCash('');
     setVesCash('');
     setPuntoVenta('');
+    setFiadoUSD('');
+  };
+
+  const fillExactPuntoVenta = () => {
+    setPuntoVenta(totalVES.toFixed(2));
+    setUsdCash('');
+    setVesCash('');
+    setPagoMovil('');
     setFiadoUSD('');
   };
 
@@ -240,11 +256,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span>Exacto en USD</span>
               </button>
               <button
+                onClick={fillExactVESCash}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition whitespace-nowrap flex items-center space-x-1"
+              >
+                <Banknote className="w-3.5 h-3.5 text-blue-600" />
+                <span>Exacto Efectivo Bs</span>
+              </button>
+              <button
                 onClick={fillExactPagoMovil}
                 className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition whitespace-nowrap flex items-center space-x-1"
               >
                 <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Exacto Pago Móvil</span>
+              </button>
+              <button
+                onClick={fillExactPuntoVenta}
+                className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 transition whitespace-nowrap flex items-center space-x-1"
+              >
+                <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+                <span>Exacto Punto</span>
               </button>
               <button
                 onClick={fillExactFiado}

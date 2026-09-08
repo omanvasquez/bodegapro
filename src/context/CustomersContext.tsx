@@ -8,6 +8,7 @@ interface CustomersContextType {
   transactions: CreditTransaction[];
   addCustomer: (name: string, phone: string, creditLimitUSD: number) => Customer;
   updateCustomer: (id: string, updates: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
   recordCharge: (
     customerId: string,
     amountUSD: number,
@@ -58,6 +59,14 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updated = prev.map((c) =>
         c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c
       );
+      dbInit.saveCustomers(updated);
+      return updated;
+    });
+  };
+
+  const deleteCustomer = (id: string) => {
+    setCustomers((prev) => {
+      const updated = prev.filter((c) => c.id !== id);
       dbInit.saveCustomers(updated);
       return updated;
     });
@@ -209,6 +218,7 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         transactions,
         addCustomer,
         updateCustomer,
+        deleteCustomer,
         recordCharge,
         recordPayment,
         getCustomerTransactions,
