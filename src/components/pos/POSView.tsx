@@ -11,7 +11,8 @@ import {
   CreditCard,
   ShoppingCart,
   ChevronUp,
-  X
+  X,
+  MinusCircle
 } from 'lucide-react';
 import { Product, CartItem } from '../../types';
 import { useInventory } from '../../context/InventoryContext';
@@ -19,6 +20,7 @@ import { useCart } from '../../context/CartContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { CheckoutModal } from './CheckoutModal';
 import { PriceOverrideModal } from './PriceOverrideModal';
+import { ExpenseModal } from '../expenses/ExpenseModal';
 
 export const POSView: React.FC = () => {
   const { products, getProductPriceUSD, getProductPriceVES } = useInventory();
@@ -43,6 +45,7 @@ export const POSView: React.FC = () => {
   // Modals
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [itemToOverride, setItemToOverride] = useState<CartItem | null>(null);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
 
   // Mobile cart drawer open state
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
@@ -73,15 +76,26 @@ export const POSView: React.FC = () => {
         
         {/* Search & Categories Bar */}
         <div className="p-4 bg-white border-b border-slate-200 space-y-3 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar producto por nombre o código..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-emerald-500 bg-slate-50/50"
-            />
+          <div className="flex items-center space-x-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar producto por nombre o código..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-emerald-500 bg-slate-50/50"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsExpenseModalOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-700 font-bold text-xs flex items-center space-x-1.5 transition shrink-0 active:scale-95 shadow-xs"
+              title="Registrar salida de dinero / gasto operativo de caja"
+            >
+              <MinusCircle className="w-4 h-4 text-rose-600" />
+              <span>Gasto</span>
+            </button>
           </div>
 
           <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
@@ -637,6 +651,14 @@ export const POSView: React.FC = () => {
           onClose={() => setItemToOverride(null)}
           onSave={(newPriceUSD) => overrideItemPrice(itemToOverride.product.id, newPriceUSD)}
           onReset={() => resetItemPrice(itemToOverride.product.id)}
+        />
+      )}
+
+      {/* Expense Modal (Salida de dinero de caja) */}
+      {isExpenseModalOpen && (
+        <ExpenseModal
+          isOpen={isExpenseModalOpen}
+          onClose={() => setIsExpenseModalOpen(false)}
         />
       )}
     </div>

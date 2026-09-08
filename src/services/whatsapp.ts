@@ -97,7 +97,10 @@ export function generateDailyClosingWhatsApp(
     date: string;
     totalUSD: number;
     totalVES: number;
+    grossProfitUSD?: number;
     netProfitUSD: number;
+    expensesUSD?: number;
+    expensesVES?: number;
     cashUSD: number;
     cashVES: number;
     pagoMovilVES: number;
@@ -106,7 +109,8 @@ export function generateDailyClosingWhatsApp(
     creditCollectedUSD: number;
   },
   storeName: string,
-  productsSold?: { name: string; quantity: number; unit: string; totalUSD: number }[]
+  productsSold?: { name: string; quantity: number; unit: string; totalUSD: number }[],
+  expensesList?: { description: string; amountUSD: number; category: string }[]
 ): string {
   let productsBlock = '';
   if (productsSold && productsSold.length > 0) {
@@ -117,13 +121,21 @@ export function generateDailyClosingWhatsApp(
     productsBlock = `\n\n🛒 *Salida de Mercancía Hoy (${productsSold.length}):*\n${list}${productsSold.length > 15 ? '\n• ...y otros más' : ''}`;
   }
 
+  let expensesBlock = '';
+  if (expensesList && expensesList.length > 0) {
+    const list = expensesList
+      .map((e) => `• ${e.description}: -$${e.amountUSD.toFixed(2)}`)
+      .join('\n');
+    expensesBlock = `\n\n💸 *Salidas / Gastos de Caja (-$${(summary.expensesUSD || 0).toFixed(2)}):*\n${list}`;
+  }
+
   const text = `📊 *CIERRE DIARIO - ${storeName}*
 📅 Fecha: ${summary.date}
 
 💵 *Facturación Total:* $${summary.totalUSD.toFixed(2)} (Bs ${summary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })})
-📈 *Ganancia Neta Real:* $${summary.netProfitUSD.toFixed(2)}
+${summary.expensesUSD ? `💸 *Total Gastos de Caja:* -$${summary.expensesUSD.toFixed(2)}\n` : ''}📈 *Ganancia Neta de Bolsillo:* $${summary.netProfitUSD.toFixed(2)}
 
-📦 *Arqueo por Canal de Cobro:*
+📦 *Arqueo de Gaveta y Bancos (Dinero Real):*
 - 💵 Efectivo $: $${summary.cashUSD.toFixed(2)}
 - 💵 Efectivo Bs: Bs ${summary.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
 - 📱 Pago Móvil: Bs ${summary.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
@@ -131,7 +143,7 @@ export function generateDailyClosingWhatsApp(
 
 📝 *Balance de Fiados:*
 - Fiados concedidos hoy: $${summary.creditIssuedUSD.toFixed(2)}
-- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}${productsBlock}
+- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}${expensesBlock}${productsBlock}
 
 Generado automáticamente por BodegaPro.`;
 

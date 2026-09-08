@@ -15,22 +15,29 @@ import {
   BookOpen,
   Package,
   Receipt,
-  Clock
+  Clock,
+  MinusCircle,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useReports } from '../../context/ReportsContext';
 import { useInventory } from '../../context/InventoryContext';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useExpenses } from '../../context/ExpensesContext';
 import { useAuth } from '../../context/AuthContext';
 import { generateDailyClosingWhatsApp, openWhatsAppLink } from '../../services/whatsapp';
+import { ExpenseModal } from '../expenses/ExpenseModal';
 
 export const ReportsView: React.FC = () => {
   const { dailySummary, weeklySalesData, topSellingProducts, monthlySummary, sales } = useReports();
   const { products } = useInventory();
   const { effectiveRate } = useCurrency();
   const { tenant } = useAuth();
+  const { todayExpenses, deleteExpense, todayExpensesByMethod } = useExpenses();
 
   const [activeReportTab, setActiveReportTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets'>('products');
+  const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets' | 'expenses'>('products');
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
 
   // Ventas de hoy
   const todaySales = useMemo(() => {
@@ -89,7 +96,12 @@ export const ReportsView: React.FC = () => {
     const text = generateDailyClosingWhatsApp(
       dailySummary, 
       tenant?.name || 'BodegaPro',
-      todayProductsSummary
+      todayProductsSummary,
+      todayExpenses.map((e) => ({
+        description: e.description,
+        amountUSD: e.amountUSD,
+        category: e.category,
+      }))
     );
     openWhatsAppLink(tenant?.phone || '', text);
   };
@@ -177,52 +189,73 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Main KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Facturación Total
                 </span>
-                <span className="text-2xl font-black text-slate-900 block mt-1">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
                   ${dailySummary.totalUSD.toFixed(2)}
                 </span>
-                <span className="text-xs text-slate-500 font-semibold block mt-0.5">
+                <span className="text-[10px] sm:text-xs text-slate-500 font-semibold block mt-0.5 truncate">
                   Bs {dailySummary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
-              <div className="p-4 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
-                <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
-                  Ganancia Neta Real
+              <div className="p-3.5 bg-white rounded-2xl border border-rose-200 bg-rose-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 uppercase tracking-wider block">
+                  Gastos de Caja
                 </span>
-                <span className="text-2xl font-black text-emerald-600 block mt-1">
-                  +${dailySummary.netProfitUSD.toFixed(2)}
+                <span className="text-xl sm:text-2xl font-black text-rose-600 block mt-1">
+                  -${dailySummary.expensesUSD.toFixed(2)}
                 </span>
-                <span className="text-[11px] text-emerald-800 font-medium block mt-0.5">
-                  Utilidad pura descontando costo de reposición
+                <span className="text-[10px] sm:text-xs text-rose-500 font-semibold block mt-0.5 truncate">
+                  Bs {dailySummary.expensesVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
-              <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                  Ganancia Neta Real
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 block mt-1">
+                  +${dailySummary.netProfitUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-emerald-800 font-medium block mt-0.5 truncate">
+                  Descontando costos y gastos
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Tickets Emitidos
                 </span>
-                <span className="text-2xl font-black text-slate-900 block mt-1">
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
                   {dailySummary.ticketsCount}
                 </span>
-                <span className="text-xs text-slate-400 block mt-0.5">
-                  Promedio: ${dailySummary.ticketsCount > 0 ? (dailySummary.totalUSD / dailySummary.ticketsCount).toFixed(2) : '0.00'} / ticket
+                <span className="text-[10px] sm:text-xs text-slate-400 block mt-0.5">
+                  Promedio: ${dailySummary.ticketsCount > 0 ? (dailySummary.totalUSD / dailySummary.ticketsCount).toFixed(2) : '0.00'}
                 </span>
               </div>
             </div>
 
             {/* Arqueo por Canales (Cuadre de caja) */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-black text-sm text-slate-900 tracking-tight">
-                Arqueo de Gaveta y Bancos (Cierre de Caja)
-              </h4>
-              <p className="text-xs text-slate-500">
-                Verifica lo que debe existir físicamente en caja y en tus cuentas bancarias:
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div>
+                  <h4 className="font-black text-sm text-slate-900 tracking-tight">
+                    Arqueo de Gaveta y Bancos (Cierre de Caja)
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Verifica lo que debe existir físicamente en caja y en tus cuentas bancarias:
+                  </p>
+                </div>
+                {(todayExpensesByMethod.cashUSD > 0 || todayExpensesByMethod.cashVES > 0) && (
+                  <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+                    ⚠️ Se restaron gastos pagados en efectivo
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
@@ -232,7 +265,9 @@ export const ReportsView: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-bold text-xs text-slate-800 block">Efectivo en Dólares ($)</span>
-                      <span className="text-[10px] text-slate-400">Gaveta física de billetes</span>
+                      <span className="text-[10px] text-slate-400">
+                        {todayExpensesByMethod.cashUSD > 0 ? `Gaveta (-$${todayExpensesByMethod.cashUSD.toFixed(2)} en gastos)` : 'Gaveta física de billetes'}
+                      </span>
                     </div>
                   </div>
                   <span className="text-base font-black text-emerald-700">
@@ -247,7 +282,9 @@ export const ReportsView: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-bold text-xs text-slate-800 block">Efectivo en Bolívares (Bs)</span>
-                      <span className="text-[10px] text-slate-400">Gaveta física sencillo Bs</span>
+                      <span className="text-[10px] text-slate-400">
+                        {todayExpensesByMethod.cashVES > 0 ? `Gaveta (-Bs ${todayExpensesByMethod.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} en gastos)` : 'Gaveta física sencillo Bs'}
+                      </span>
                     </div>
                   </div>
                   <span className="text-base font-black text-blue-700">
@@ -262,7 +299,9 @@ export const ReportsView: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-bold text-xs text-slate-800 block">Pago Móvil Recibido</span>
-                      <span className="text-[10px] text-slate-400">Estado de cuenta banco</span>
+                      <span className="text-[10px] text-slate-400">
+                        {todayExpensesByMethod.pagoMovilVES > 0 ? `Banco (-Bs ${todayExpensesByMethod.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} en gastos)` : 'Estado de cuenta banco'}
+                      </span>
                     </div>
                   </div>
                   <span className="text-base font-black text-indigo-700">
@@ -277,7 +316,9 @@ export const ReportsView: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-bold text-xs text-slate-800 block">Punto de Venta</span>
-                      <span className="text-[10px] text-slate-400">Lote cierre de terminal</span>
+                      <span className="text-[10px] text-slate-400">
+                        {todayExpensesByMethod.puntoVES > 0 ? `Terminal (-Bs ${todayExpensesByMethod.puntoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} en gastos)` : 'Lote cierre de terminal'}
+                      </span>
                     </div>
                   </div>
                   <span className="text-base font-black text-amber-700">
@@ -321,31 +362,54 @@ export const ReportsView: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Switcher entre Productos Salidos y Registro de Tickets */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                {/* Switcher entre Productos Salidos, Registro de Tickets y Gastos de Caja */}
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setDailyHistoryView('products')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                        dailyHistoryView === 'products'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <Package className="w-3.5 h-3.5 text-brand-emerald-600" />
+                      <span>Productos ({todayProductsSummary.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDailyHistoryView('tickets')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                        dailyHistoryView === 'tickets'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Tickets ({todaySales.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDailyHistoryView('expenses')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                        dailyHistoryView === 'expenses'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <MinusCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Gastos ({todayExpenses.length})</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setDailyHistoryView('products')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-                      dailyHistoryView === 'products'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                    onClick={() => setIsExpenseModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center space-x-1.5 transition shadow-xs"
                   >
-                    <Package className="w-3.5 h-3.5 text-brand-emerald-600" />
-                    <span>Productos Salidos ({todayProductsSummary.length})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDailyHistoryView('tickets')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
-                      dailyHistoryView === 'tickets'
-                        ? 'bg-white text-slate-900 shadow-xs'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    <Receipt className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Tickets ({todaySales.length})</span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Nuevo Gasto</span>
                   </button>
                 </div>
               </div>
@@ -501,6 +565,121 @@ export const ReportsView: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* VISTA 3: GASTOS Y SALIDAS DE CAJA */}
+              {dailyHistoryView === 'expenses' && (
+                <div className="space-y-3">
+                  {todayExpenses.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-2">
+                      <MinusCircle className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs font-semibold">No se han registrado salidas de caja o gastos hoy.</p>
+                      <button
+                        type="button"
+                        onClick={() => setIsExpenseModalOpen(true)}
+                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Registrar Primer Gasto</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-600 bg-rose-50/60 p-2.5 rounded-xl border border-rose-200/80">
+                        <span>Total gastos de la jornada:</span>
+                        <div className="text-right">
+                          <span className="text-rose-700 font-black text-sm block">
+                            -${dailySummary.expensesUSD.toFixed(2)}
+                          </span>
+                          <span className="text-[10px] text-rose-600 font-semibold">
+                            Bs {dailySummary.expensesVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="divide-y divide-slate-100">
+                        {todayExpenses.map((expense) => {
+                          const categoryLabels: Record<string, { label: string; bg: string; text: string }> = {
+                            gasolina: { label: '⛽ Gasolina', bg: 'bg-amber-100', text: 'text-amber-800' },
+                            personal: { label: '👷 Empleado/Pago', bg: 'bg-blue-100', text: 'text-blue-800' },
+                            proveedor: { label: '🚛 Proveedor/Factura', bg: 'bg-purple-100', text: 'text-purple-800' },
+                            servicios: { label: '💡 Servicios/Luz', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+                            suministros: { label: '🛍️ Bolsas/Suministros', bg: 'bg-pink-100', text: 'text-pink-800' },
+                            mantenimiento: { label: '🔧 Mantenimiento', bg: 'bg-orange-100', text: 'text-orange-800' },
+                            otro: { label: '📦 Otro Gasto', bg: 'bg-slate-100', text: 'text-slate-800' },
+                          };
+
+                          const methodLabels: Record<string, string> = {
+                            usd_cash: 'Efectivo $',
+                            ves_cash: 'Efectivo Bs',
+                            pago_movil: 'Pago Móvil',
+                            punto_venta: 'Punto de Venta',
+                          };
+
+                          const catMeta = categoryLabels[expense.category] || categoryLabels.otro;
+                          const methodStr = methodLabels[expense.paymentMethod] || expense.paymentMethod;
+                          const timeStr = new Date(expense.timestamp).toLocaleTimeString('es-VE', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+
+                          return (
+                            <div key={expense.id} className="py-3 flex items-center justify-between gap-2">
+                              <div className="flex items-center space-x-3 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 font-bold text-xs">
+                                  💸
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center space-x-2 flex-wrap">
+                                    <span className="font-bold text-xs text-slate-800 truncate">
+                                      {expense.description}
+                                    </span>
+                                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md ${catMeta.bg} ${catMeta.text}`}>
+                                      {catMeta.label}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
+                                    <span className="flex items-center space-x-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>{timeStr}</span>
+                                    </span>
+                                    <span>•</span>
+                                    <span className="font-semibold text-slate-500">{methodStr}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-3 shrink-0">
+                                <div className="text-right">
+                                  <span className="font-black text-rose-600 text-sm block">
+                                    -${expense.amountUSD.toFixed(2)}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-semibold block">
+                                    Bs {expense.amountVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`¿Eliminar gasto "${expense.description}" de $${expense.amountUSD.toFixed(2)}?`)) {
+                                      deleteExpense(expense.id);
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                  title="Eliminar gasto"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -651,6 +830,14 @@ export const ReportsView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal para registrar nuevo gasto desde informes */}
+      {isExpenseModalOpen && (
+        <ExpenseModal
+          isOpen={isExpenseModalOpen}
+          onClose={() => setIsExpenseModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { Product, Customer, SaleTicket, CreditTransaction, InventoryWaste, Supplier, Tenant } from '../types';
+import { Product, Customer, SaleTicket, CreditTransaction, InventoryWaste, Supplier, Tenant, Expense } from '../types';
 
 const INITIAL_TENANT: Tenant = {
   id: 'tenant_cojedes_01',
@@ -246,4 +246,7 @@ export const dbInit = {
 
   getSuppliers: (): Supplier[] => getLocalData<Supplier[]>('suppliers', INITIAL_SUPPLIERS),
   saveSuppliers: (s: Supplier[]) => saveLocalData('suppliers', s),
+
+  getExpenses: (): Expense[] => getLocalData<Expense[]>('expenses', []),
+  saveExpenses: (e: Expense[]) => saveLocalData('expenses', e),
 };

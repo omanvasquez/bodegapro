@@ -4,6 +4,7 @@ import { dbInit } from '../services/localDatabase';
 import { useCurrency } from './CurrencyContext';
 import { useInventory } from './InventoryContext';
 import { useCustomers } from './CustomersContext';
+import { useExpenses } from './ExpensesContext';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
 import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -32,7 +33,10 @@ interface ReportsContextType {
     totalUSD: number;
     totalVES: number;
     totalCostUSD: number;
+    grossProfitUSD: number;
     netProfitUSD: number;
+    expensesUSD: number;
+    expensesVES: number;
     cashUSD: number;
     cashVES: number;
     pagoMovilVES: number;
@@ -60,6 +64,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { effectiveRate, rates, isOverride } = useCurrency();
   const { products, adjustStock } = useInventory();
   const { recordCharge, transactions } = useCustomers();
+  const { todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod } = useExpenses();
   const { tenant } = useAuth();
 
   // Sincronización en segundo plano de tickets de venta (Offline-First)
@@ -245,21 +250,33 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
+    const grossProfitUSD = Math.round((totalUSD - totalCostUSD) * 100) / 100;
+    const netProfitUSD = Math.round((grossProfitUSD - todayTotalExpensesUSD) * 100) / 100;
+
+    // Descontar salidas de efectivo y gastos pagados de la gaveta / cuentas
+    const finalCashUSD = Math.max(0, Math.round((cashUSD - todayExpensesByMethod.cashUSD) * 100) / 100);
+    const finalCashVES = Math.max(0, Math.round((cashVES - todayExpensesByMethod.cashVES) * 100) / 100);
+    const finalPagoMovilVES = Math.max(0, Math.round((pagoMovilVES - todayExpensesByMethod.pagoMovilVES) * 100) / 100);
+    const finalPuntoVES = Math.max(0, Math.round((puntoVES - todayExpensesByMethod.puntoVES) * 100) / 100);
+
     return {
       date: new Date().toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'long' }),
       totalUSD: Math.round(totalUSD * 100) / 100,
       totalVES: Math.round(totalVES * 100) / 100,
       totalCostUSD: Math.round(totalCostUSD * 100) / 100,
-      netProfitUSD: Math.round((totalUSD - totalCostUSD) * 100) / 100,
-      cashUSD: Math.round(cashUSD * 100) / 100,
-      cashVES: Math.round(cashVES * 100) / 100,
-      pagoMovilVES: Math.round(pagoMovilVES * 100) / 100,
-      puntoVES: Math.round(puntoVES * 100) / 100,
+      grossProfitUSD,
+      netProfitUSD,
+      expensesUSD: todayTotalExpensesUSD,
+      expensesVES: todayTotalExpensesVES,
+      cashUSD: finalCashUSD,
+      cashVES: finalCashVES,
+      pagoMovilVES: finalPagoMovilVES,
+      puntoVES: finalPuntoVES,
       creditIssuedUSD: Math.round(creditIssuedUSD * 100) / 100,
       creditCollectedUSD: Math.round(creditCollectedUSD * 100) / 100,
       ticketsCount: todaySales.length,
     };
-  }, [sales, transactions]);
+  }, [sales, transactions, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod]);
 
   // Resumen Semanal (Últimos 7 días)
   const weeklySalesData = useMemo(() => {

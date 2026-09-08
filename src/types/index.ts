@@ -162,6 +162,28 @@ export interface InventoryWaste {
   notes?: string;
 }
 
+export type ExpenseCategory = 
+  | 'gasolina'       // Combustible para planta eléctrica o transporte
+  | 'personal'       // Pago diario o semanal a empleados, ayudantes
+  | 'proveedor'      // Pago de facturas de mercancía o despacho
+  | 'servicios'      // Luz, internet, agua, recargas
+  | 'suministros'    // Bolsas plásticas, hielo, cinta, empaques
+  | 'mantenimiento'  // Reparación de neveras, bombillos, etc.
+  | 'otro';          // Otros gastos imprevistos
+
+export interface Expense {
+  id: string;
+  tenantId: string;
+  timestamp: number;
+  description: string;
+  category: ExpenseCategory;
+  amountUSD: number;
+  amountVES: number;
+  paymentMethod: 'usd_cash' | 'ves_cash' | 'pago_movil' | 'punto_venta';
+  registeredBy?: string;
+  notes?: string;
+}
+
 export interface ExchangeRates {
   bcv: number;
   euro: number;

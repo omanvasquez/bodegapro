@@ -4,6 +4,7 @@ import { CurrencyProvider } from './context/CurrencyContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { CartProvider } from './context/CartContext';
 import { CustomersProvider } from './context/CustomersContext';
+import { ExpensesProvider } from './context/ExpensesContext';
 import { ReportsProvider } from './context/ReportsContext';
 
 import { Header } from './components/common/Header';
@@ -143,9 +144,11 @@ export function App() {
         <InventoryProvider>
           <CartProvider>
             <CustomersProvider>
-              <ReportsProvider>
-                <AppContent />
-              </ReportsProvider>
+              <ExpensesProvider>
+                <ReportsProvider>
+                  <AppContent />
+                </ReportsProvider>
+              </ExpensesProvider>
             </CustomersProvider>
           </CartProvider>
         </InventoryProvider>
