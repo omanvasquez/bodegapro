@@ -23,6 +23,8 @@ import { SettingsView } from './components/settings/SettingsView';
 
 import { AboutModal } from './components/about/AboutModal';
 import { SuperAdminModal } from './components/superadmin/SuperAdminModal';
+import { InstallAppModal } from './components/common/InstallAppModal';
+import { usePWAInstall } from './hooks/usePWAInstall';
 import { Store } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -33,6 +35,15 @@ const AppContent: React.FC = () => {
     isPendingApproval, 
     needsRegistration 
   } = useAuth();
+
+  const {
+    isInstalled,
+    isInstallable,
+    triggerInstall,
+    isInstallModalOpen,
+    setIsInstallModalOpen,
+    deferredPrompt,
+  } = usePWAInstall();
 
   const [activeTab, setActiveTab] = useState<TabType>('pos');
   const [isAboutOpen, setIsAboutOpen] = useState<boolean>(false);
@@ -79,6 +90,8 @@ const AppContent: React.FC = () => {
       <Header
         onOpenAbout={() => setIsAboutOpen(true)}
         onOpenSuperAdmin={() => setIsSuperAdminOpen(true)}
+        onOpenInstall={triggerInstall}
+        isInstalled={isInstalled}
       />
 
       {/* Main Layout (Desktop Sidebar + Mobile BottomNav) */}
@@ -88,6 +101,8 @@ const AppContent: React.FC = () => {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onOpenSuperAdmin={() => setIsSuperAdminOpen(true)}
+          onOpenInstall={triggerInstall}
+          isInstalled={isInstalled}
         />
 
         {/* Center Content View */}
@@ -111,6 +126,12 @@ const AppContent: React.FC = () => {
       {/* Modals */}
       <AboutModal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} />
       <SuperAdminModal isOpen={isSuperAdminOpen} onClose={() => setIsSuperAdminOpen(false)} />
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        onDirectInstall={triggerInstall}
+        hasPrompt={!!deferredPrompt}
+      />
     </div>
   );
 };

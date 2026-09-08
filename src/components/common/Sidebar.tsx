@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, Package, Users, BarChart3, Settings, ShieldCheck } from 'lucide-react';
+import { ShoppingCart, Package, Users, BarChart3, Settings, ShieldCheck, Download } from 'lucide-react';
 import { TabType } from './BottomNav';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
@@ -8,9 +8,17 @@ interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   onOpenSuperAdmin: () => void;
+  onOpenInstall?: () => void;
+  isInstalled?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpenSuperAdmin }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  onOpenSuperAdmin,
+  onOpenInstall,
+  isInstalled = false,
+}) => {
   const { totalItemsCount } = useCart();
   const { isSuperAdmin } = useAuth();
 
@@ -75,8 +83,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onOpe
         </div>
       )}
 
+      {/* Install App Promo in Desktop Sidebar */}
+      {!isInstalled && onOpenInstall && (
+        <div className="p-3 mx-3 mb-2 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 text-white shadow-sm shrink-0">
+          <div className="flex items-center space-x-2 mb-1">
+            <div className="w-6 h-6 rounded-lg bg-brand-emerald-500/20 text-brand-emerald-400 flex items-center justify-center">
+              <Download className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-xs font-bold text-white">Instalar en PC</span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-tight mb-2.5">
+            Abre BodegaPro a pantalla completa como una caja registradora.
+          </p>
+          <button
+            onClick={onOpenInstall}
+            className="w-full py-1.5 px-2.5 rounded-xl bg-brand-emerald-500 hover:bg-brand-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center space-x-1.5 transition shadow"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Instalar Programa</span>
+          </button>
+        </div>
+      )}
+
       {/* Desktop footer info */}
-      <div className="p-4 border-t border-slate-200 text-xs text-slate-400">
+      <div className="p-4 border-t border-slate-200 text-xs text-slate-400 shrink-0">
         <p className="font-semibold text-slate-600">BodegaPro v1.0</p>
         <p className="text-[11px] text-slate-400">Por Oman Vásquez</p>
       </div>

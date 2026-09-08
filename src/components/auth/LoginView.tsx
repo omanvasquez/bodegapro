@@ -7,13 +7,23 @@ import {
   DollarSign, 
   Smartphone, 
   Layers, 
-  HelpCircle
+  HelpCircle,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { openWhatsAppLink } from '../../services/whatsapp';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { InstallAppModal } from '../common/InstallAppModal';
 
 export const LoginView: React.FC = () => {
   const { loginWithGoogle } = useAuth();
+  const {
+    isInstalled,
+    triggerInstall,
+    isInstallModalOpen,
+    setIsInstallModalOpen,
+    deferredPrompt,
+  } = usePWAInstall();
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
@@ -58,13 +68,26 @@ export const LoginView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleContactWhatsApp}
-          className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center space-x-1 transition"
-        >
-          <HelpCircle className="w-4 h-4" />
-          <span className="hidden sm:inline">Soporte Oman Vásquez</span>
-        </button>
+        <div className="flex items-center space-x-2.5">
+          {!isInstalled && (
+            <button
+              onClick={triggerInstall}
+              className="flex items-center space-x-1.5 bg-brand-emerald-500 hover:bg-brand-emerald-400 text-slate-950 font-black px-3 py-1.5 rounded-xl text-xs shadow-md transition"
+              title="Instalar BodegaPro en PC o Teléfono"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Instalar App</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleContactWhatsApp}
+            className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center space-x-1 transition"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Soporte Oman Vásquez</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -181,6 +204,13 @@ export const LoginView: React.FC = () => {
           BodegaPro • Desarrollado por <strong>Oman Vásquez</strong> (+58 412-4169949)
         </p>
       </footer>
+
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        onDirectInstall={triggerInstall}
+        hasPrompt={!!deferredPrompt}
+      />
     </div>
   );
 };

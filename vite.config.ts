@@ -13,9 +13,12 @@ export default defineConfig({
         name: 'BodegaPro - Punto de Venta e Inventario',
         short_name: 'BodegaPro',
         description: 'SaaS ligero de punto de venta, inventario multimoneda y control de fiados para comercios.',
-        theme_color: '#0f172a',
-        background_color: '#f8fafc',
+        start_url: '/',
+        id: '/',
+        scope: '/',
         display: 'standalone',
+        background_color: '#0f172a',
+        theme_color: '#0f172a',
         orientation: 'portrait',
         icons: [
           {
@@ -32,7 +35,13 @@ export default defineConfig({
             src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       },

@@ -8,7 +8,8 @@ import {
   Wifi, 
   WifiOff, 
   Check,
-  LogOut
+  LogOut,
+  Download
 } from 'lucide-react';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -16,9 +17,16 @@ import { useAuth } from '../../context/AuthContext';
 interface HeaderProps {
   onOpenAbout: () => void;
   onOpenSuperAdmin: () => void;
+  onOpenInstall?: () => void;
+  isInstalled?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onOpenSuperAdmin }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onOpenAbout, 
+  onOpenSuperAdmin,
+  onOpenInstall,
+  isInstalled = false,
+}) => {
   const { effectiveRate, isOverride, isLoading, refreshRates, setManualOverride, rates } = useCurrency();
   const { tenant, isSuperAdmin, logout, user } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -121,6 +129,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onOpenSuperAdmin })
             {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
             <span>{isOnline ? 'Online' : 'Offline'}</span>
           </div>
+
+          {/* Install App Button */}
+          {!isInstalled && onOpenInstall && (
+            <button
+              onClick={onOpenInstall}
+              className="flex items-center space-x-1.5 bg-brand-emerald-500 hover:bg-brand-emerald-400 text-slate-950 font-black px-2.5 sm:px-3 py-1.5 rounded-xl text-xs shadow-md transition"
+              title="Instalar BodegaPro en tu PC o Teléfono"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Instalar App</span>
+            </button>
+          )}
 
           {/* Superadmin Button (Only Oman) */}
           {isSuperAdmin && (
