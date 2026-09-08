@@ -1,11 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Tenant, TenantStatus } from '../types';
 import { dbInit, getLocalData, saveLocalData } from '../services/localDatabase';
-import { auth, googleProvider } from '../services/firebase';
-import { signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User } from 'firebase/auth';
+import { auth, db, googleProvider } from '../services/firebase';
+import { 
+  signInWithPopup, 
+  signOut as fbSignOut, 
+  onAuthStateChanged, 
+  User 
+} from 'firebase/auth';
+import { 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  collection, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 interface AuthContextType {
-  user: { email: string; name: string; photoURL?: string } | null;
+  user: { uid?: string; email: string; name: string; photoURL?: string } | null;
   tenant: Tenant | null;
   authLoading: boolean;
   isSuperAdmin: boolean;
@@ -15,8 +27,8 @@ interface AuthContextType {
   trialDaysRemaining: number;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  registerTenant: (data: { name: string; ownerName: string; phone: string }) => void;
-  updateTenantStatus: (tenantId: string, newStatus: TenantStatus, trialDays?: number) => void;
+  registerTenant: (data: { name: string; ownerName: string; phone: string }) => Promise<void>;
+  updateTenantStatus: (tenantId: string, newStatus: TenantStatus, trialDays?: number) => Promise<void>;
   allTenantsForSuperadmin: Tenant[];
 }
 
@@ -68,8 +80,7 @@ const DEFAULT_TENANTS_LIST: Tenant[] = [
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Estado de usuario inicialmente NULL (nadie entra logueado por defecto)
-  const [user, setUser] = useState<{ email: string; name: string; photoURL?: string } | null>(null);
+  const [user, setUser] = useState<{ uid?: string; email: string; name: string; photoURL?: string } | null>(null);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   
   const [tenantsList, setTenantsList] = useState<Tenant[]>(() =>
@@ -85,39 +96,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Escuchar estado real de autenticación de Firebase
   useEffect(() => {
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (firebaseUser: User | null) => {
-        if (firebaseUser && firebaseUser.email) {
-          const email = firebaseUser.email.toLowerCase();
-          const currentUserObj = {
-            email: firebaseUser.email,
-            name: firebaseUser.displayName || 'Comerciante',
-            photoURL: firebaseUser.photoURL || undefined,
-          };
-          setUser(currentUserObj);
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
 
-          // Buscar si ya tiene bodega registrada
-          const existingTenant = tenantsList.find((t) => t.ownerEmail.toLowerCase() === email);
-          if (existingTenant) {
-            setCurrentTenant(existingTenant);
-          } else if (email === SUPERADMIN_EMAIL.toLowerCase()) {
-            // El superadmin tiene su bodega base
-            const adminTenant = tenantsList[0];
-            setCurrentTenant(adminTenant);
-          } else {
-            setCurrentTenant(null);
+    let unsubFirestoreTenants: (() => void) | null = null;
+    let unsubMyTenant: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser: User | null) => {
+      if (unsubFirestoreTenants) {
+        unsubFirestoreTenants();
+        unsubFirestoreTenants = null;
+      }
+      if (unsubMyTenant) {
+        unsubMyTenant();
+        unsubMyTenant = null;
+      }
+
+      if (firebaseUser && firebaseUser.email) {
+        const email = firebaseUser.email.toLowerCase();
+        const currentUserObj = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || 'Comerciante',
+          photoURL: firebaseUser.photoURL || undefined,
+        };
+        setUser(currentUserObj);
+
+        // Caso 1: Es Superadmin (Oman)
+        if (email === SUPERADMIN_EMAIL.toLowerCase()) {
+          // Asignar su tenant por defecto
+          const adminDefaultTenant: Tenant = {
+            id: 'tenant_cojedes_01',
+            name: 'Bodega y Víveres Don Pedro',
+            ownerName: 'Oman Vásquez',
+            ownerEmail: 'omanjrvasquez@gmail.com',
+            phone: '04124169949',
+            status: 'activo',
+            trialEndsAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+            createdAt: Date.now(),
+          };
+          setCurrentTenant(adminDefaultTenant);
+
+          // Escuchar en TIEMPO REAL toda la colección 'tenants' desde Firestore
+          if (db) {
+            unsubFirestoreTenants = onSnapshot(collection(db, 'tenants'), (snapshot) => {
+              const cloudTenants: Tenant[] = [];
+              snapshot.forEach((docSnap) => {
+                const data = docSnap.data() as Tenant;
+                cloudTenants.push(data);
+              });
+
+              // Si hay registros en Firestore, combinarlos con los locales
+              if (cloudTenants.length > 0) {
+                // Combinar sin duplicados
+                const map = new Map<string, Tenant>();
+                DEFAULT_TENANTS_LIST.forEach((t) => map.set(t.id, t));
+                cloudTenants.forEach((t) => map.set(t.id, t));
+                const merged = Array.from(map.values());
+                saveTenants(merged);
+              }
+            }, (error) => {
+              console.warn('Error escuchando tenants en Firestore:', error);
+            });
           }
         } else {
-          setUser(null);
-          setCurrentTenant(null);
+          // Caso 2: Es un comerciante regular
+          // Escuchar su propio documento en Firestore en tiempo real (id = uid)
+          if (db) {
+            unsubMyTenant = onSnapshot(doc(db, 'tenants', firebaseUser.uid), (docSnap) => {
+              if (docSnap.exists()) {
+                const tenantData = docSnap.data() as Tenant;
+                setCurrentTenant(tenantData);
+              } else {
+                // Si no está por uid, buscar en tenantsList local
+                const existing = tenantsList.find((t) => t.ownerEmail.toLowerCase() === email);
+                setCurrentTenant(existing || null);
+              }
+            }, (error) => {
+              console.warn('Error al leer tenant personal en Firestore:', error);
+              const existing = tenantsList.find((t) => t.ownerEmail.toLowerCase() === email);
+              setCurrentTenant(existing || null);
+            });
+          } else {
+            const existing = tenantsList.find((t) => t.ownerEmail.toLowerCase() === email);
+            setCurrentTenant(existing || null);
+          }
         }
-        setAuthLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
+      } else {
+        setUser(null);
+        setCurrentTenant(null);
+      }
       setAuthLoading(false);
-    }
-  }, [tenantsList]);
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubFirestoreTenants) unsubFirestoreTenants();
+      if (unsubMyTenant) unsubMyTenant();
+    };
+  }, []);
 
   const isSuperAdmin = Boolean(user && user.email.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase());
 
@@ -141,23 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithGoogle = async () => {
     if (auth && googleProvider) {
-      const res = await signInWithPopup(auth, googleProvider);
-      if (res.user && res.user.email) {
-        const email = res.user.email.toLowerCase();
-        const userObj = {
-          email: res.user.email,
-          name: res.user.displayName || 'Comerciante',
-          photoURL: res.user.photoURL || undefined,
-        };
-        setUser(userObj);
-
-        const existing = tenantsList.find((t) => t.ownerEmail.toLowerCase() === email);
-        if (existing) {
-          setCurrentTenant(existing);
-        }
-      }
+      await signInWithPopup(auth, googleProvider);
     } else {
-      // Fallback si no hay auth
       throw new Error('Firebase Auth no está configurado.');
     }
   };
@@ -170,12 +234,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentTenant(null);
   };
 
-  // Registrar nueva bodega (queda en estado PENDIENTE)
-  const registerTenant = (data: { name: string; ownerName: string; phone: string }) => {
+  // Registrar nueva bodega (se sube a Firestore en tiempo real y queda en estado PENDIENTE)
+  const registerTenant = async (data: { name: string; ownerName: string; phone: string }) => {
     if (!user) return;
 
+    // Usar el UID del usuario como ID del tenant para indexación directa y segura
+    const tenantId = user.uid || ('tenant_' + Date.now().toString(36));
+
     const newTenant: Tenant = {
-      id: 'tenant_' + Date.now().toString(36),
+      id: tenantId,
       name: data.name,
       ownerName: data.ownerName,
       ownerEmail: user.email,
@@ -185,26 +252,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: Date.now(),
     };
 
-    const updated = [newTenant, ...tenantsList];
+    // 1. Guardar en Firestore para que Oman lo vea en cualquier dispositivo al instante
+    if (db) {
+      try {
+        await setDoc(doc(db, 'tenants', tenantId), newTenant);
+      } catch (err) {
+        console.error('Error guardando en Firestore tenants:', err);
+      }
+    }
+
+    // 2. Guardar en caché local
+    const updated = [newTenant, ...tenantsList.filter((t) => t.id !== tenantId)];
     saveTenants(updated);
     setCurrentTenant(newTenant);
   };
 
   // Superadmin activa/suspende o asigna prueba a cualquier tenant
-  const updateTenantStatus = (
+  const updateTenantStatus = async (
     tenantId: string,
     newStatus: TenantStatus,
     trialDays: number = 14
   ) => {
+    const newTrialEndsAt =
+      newStatus === 'trial'
+        ? Date.now() + trialDays * 24 * 60 * 60 * 1000
+        : undefined;
+
+    // 1. Actualizar en Firestore en la nube
+    if (db) {
+      try {
+        const payload: any = { status: newStatus };
+        if (newTrialEndsAt) payload.trialEndsAt = newTrialEndsAt;
+        await updateDoc(doc(db, 'tenants', tenantId), payload);
+      } catch (err) {
+        console.error('Error actualizando status en Firestore:', err);
+      }
+    }
+
+    // 2. Actualizar estado local inmediatamente
     const updated = tenantsList.map((t) => {
       if (t.id === tenantId) {
         return {
           ...t,
           status: newStatus,
-          trialEndsAt:
-            newStatus === 'trial'
-              ? Date.now() + trialDays * 24 * 60 * 60 * 1000
-              : t.trialEndsAt,
+          trialEndsAt: newTrialEndsAt || t.trialEndsAt,
         };
       }
       return t;
