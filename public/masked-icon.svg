@@ -1,13 +1,106 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <rect width="100" height="100" rx="24" fill="#0F172A"/>
-  <rect x="8" y="8" width="84" height="84" rx="18" fill="url(#grad)" stroke="#10B981" stroke-width="2"/>
-  <path d="M30 40h40M30 50h40M30 60h25" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>
-  <circle cx="68" cy="62" r="8" fill="#10B981"/>
-  <path d="M68 58v8M64 62h8" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1E293B"/>
-      <stop offset="1" stop-color="#0F172A"/>
+    <!-- Background Gradient (Full bleed for adaptive Android/iOS mask) -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="40%" stop-color="#0B1120"/>
+      <stop offset="100%" stop-color="#040711"/>
     </linearGradient>
+
+    <!-- Emerald Ambient Glow -->
+    <radialGradient id="glow" cx="50%" cy="48%" r="52%">
+      <stop offset="0%" stop-color="#10B981" stop-opacity="0.36"/>
+      <stop offset="55%" stop-color="#059669" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#0B1120" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Vibrant Emerald Gradient -->
+    <linearGradient id="emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="50%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+
+    <!-- Deep Emerald for Awning Outer Folds -->
+    <linearGradient id="emeraldDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Crisp White Stripe -->
+    <linearGradient id="whiteStripe" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+
+    <!-- Drop Shadows for 3D Layering -->
+    <filter id="shadowAwning" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="glowCart" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="16" flood-color="#10B981" flood-opacity="0.75"/>
+    </filter>
+    <filter id="shadowStore" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
   </defs>
+
+  <!-- Full-bleed background -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  
+  <!-- Subtle ambient emerald backlight -->
+  <circle cx="256" cy="250" r="230" fill="url(#glow)"/>
+
+  <!-- EMBLEM GROUP (Positioned in Android Safe Zone 90 to 422) -->
+  <g filter="url(#shadowStore)">
+    
+    <!-- Storefront Glass Backing Card -->
+    <rect x="110" y="240" width="292" height="150" rx="28" fill="#1E293B" stroke="#334155" stroke-width="4"/>
+    <rect x="126" y="254" width="260" height="106" rx="18" fill="#090E1A" stroke="#10B981" stroke-width="2.5" stroke-opacity="0.75"/>
+
+    <!-- Shopping Cart + Dollar in Display Window (Scaled up for small screens) -->
+    <g transform="translate(256, 307) scale(1.22)">
+      <!-- Modern Shopping Cart Wireframe in Crisp White -->
+      <path d="M -54 -20 L -38 -20 L -20 20 L 36 20 L 50 -10 L -16 -10" fill="none" stroke="#FFFFFF" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="-14" cy="36" r="7.5" fill="#34D399"/>
+      <circle cx="28" cy="36" r="7.5" fill="#34D399"/>
+
+      <!-- Glowing Coin with Dollar Sign -->
+      <g filter="url(#glowCart)">
+        <circle cx="12" cy="-2" r="19" fill="url(#emerald)"/>
+        <circle cx="12" cy="-2" r="16.5" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-opacity="0.8"/>
+        <text x="12" y="6" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="21" fill="#FFFFFF" text-anchor="middle">$</text>
+      </g>
+    </g>
+
+    <!-- Store Counter Plinth / Base -->
+    <rect x="94" y="394" width="324" height="22" rx="11" fill="url(#emerald)"/>
+
+    <!-- BODEGA AWNING (TOLDO) on top (Layered with Shadow over Store) -->
+    <g filter="url(#shadowAwning)">
+      <!-- Top Ridge Support Line -->
+      <path d="M 82 144 Q 256 120 430 144 L 418 168 Q 256 144 94 168 Z" fill="#047857"/>
+
+      <!-- 5 Curved Scalloped Panels -->
+      <!-- Panel 1: Emerald Left -->
+      <path d="M 94 168 L 74 246 Q 112 270 144 246 L 154 160 Q 124 164 94 168 Z" fill="url(#emeraldDark)"/>
+      <!-- Panel 2: Crisp White Left-Center -->
+      <path d="M 154 160 L 144 246 Q 188 270 218 246 L 224 154 Q 189 157 154 160 Z" fill="url(#whiteStripe)"/>
+      <!-- Panel 3: Vibrant Emerald Center -->
+      <path d="M 224 154 L 218 246 Q 256 270 294 246 L 288 154 Q 256 153 224 154 Z" fill="url(#emerald)"/>
+      <!-- Panel 4: Crisp White Right-Center -->
+      <path d="M 288 154 L 294 246 Q 324 270 368 246 L 358 160 Q 323 157 288 154 Z" fill="url(#whiteStripe)"/>
+      <!-- Panel 5: Emerald Right -->
+      <path d="M 358 160 L 368 246 Q 400 270 438 246 L 418 168 Q 388 164 358 160 Z" fill="url(#emeraldDark)"/>
+
+      <!-- Deep Under-Awning Shadow -->
+      <path d="M 74 246 Q 112 270 144 246 Q 188 270 218 246 Q 256 270 294 246 Q 324 270 368 246 Q 400 270 438 246 L 438 254 Q 400 278 368 254 Q 324 278 294 254 Q 256 278 218 254 Q 188 278 144 254 Q 112 278 74 254 Z" fill="#022C22" opacity="0.6"/>
+    </g>
+
+    <!-- PRO Badge (Integrated into the bottom-right corner) -->
+    <g transform="translate(382, 368)" filter="url(#glowCart)">
+      <rect x="-36" y="-16" width="72" height="32" rx="10" fill="#10B981" stroke="#FFFFFF" stroke-width="2.5"/>
+      <text x="0" y="6" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="14" fill="#FFFFFF" text-anchor="middle" letter-spacing="1.5">PRO</text>
+    </g>
+  </g>
 </svg>

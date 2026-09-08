@@ -46,14 +46,49 @@ interface ReportsContextType {
     ticketsCount: number;
   };
   weeklySalesData: { day: string; dateStr: string; totalUSD: number; tickets: number }[];
+  weeklySummary: {
+    totalUSD: number;
+    totalVES: number;
+    totalCostUSD: number;
+    grossProfitUSD: number;
+    expensesUSD: number;
+    expensesVES: number;
+    netProfitUSD: number;
+    profitMarginPercent: number;
+    ticketsCount: number;
+    averageTicketUSD: number;
+    averageDailyUSD: number;
+    cashUSD: number;
+    cashVES: number;
+    pagoMovilVES: number;
+    puntoVES: number;
+    creditIssuedUSD: number;
+    creditCollectedUSD: number;
+    expensesByCategory: Record<string, number>;
+  };
   topSellingProducts: { name: string; quantity: number; totalUSD: number }[];
   monthlySummary: {
     monthName: string;
     totalUSD: number;
     totalVES: number;
+    totalCostUSD: number;
+    grossProfitUSD: number;
+    expensesUSD: number;
+    expensesVES: number;
     netProfitUSD: number;
+    profitMarginPercent: number;
     growthPercent: number;
     ticketsCount: number;
+    averageTicketUSD: number;
+    averageDailyUSD: number;
+    cashUSD: number;
+    cashVES: number;
+    pagoMovilVES: number;
+    puntoVES: number;
+    creditIssuedUSD: number;
+    creditCollectedUSD: number;
+    collectionRatePercent: number;
+    expensesByCategory: Record<string, number>;
   };
 }
 
@@ -64,7 +99,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { effectiveRate, rates, isOverride } = useCurrency();
   const { products, adjustStock } = useInventory();
   const { recordCharge, transactions } = useCustomers();
-  const { todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod } = useExpenses();
+  const { expenses, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod } = useExpenses();
   const { tenant } = useAuth();
 
   // Sincronización en segundo plano de tickets de venta (Offline-First)
@@ -278,7 +313,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [sales, transactions, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod]);
 
-  // Resumen Semanal (Últimos 7 días)
+  // Resumen Semanal (Últimos 7 días - Gráfico diario)
   const weeklySalesData = useMemo(() => {
     const daysName = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const result = [];
@@ -304,6 +339,98 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return result;
   }, [sales]);
 
+  // Resumen Semanal Consolidado (Últimos 7 días)
+  const weeklySummary = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const startOfSevenDays = sevenDaysAgo.getTime();
+
+    const weekSales = sales.filter((s) => s.timestamp >= startOfSevenDays);
+    const weekExpenses = expenses.filter((e) => e.timestamp >= startOfSevenDays);
+    const weekTrans = transactions.filter((t) => t.timestamp >= startOfSevenDays);
+
+    let totalUSD = 0;
+    let totalVES = 0;
+    let totalCostUSD = 0;
+    let cashUSD = 0;
+    let cashVES = 0;
+    let pagoMovilVES = 0;
+    let puntoVES = 0;
+
+    let creditIssuedUSD = 0;
+    for (const s of weekSales) {
+      totalUSD += s.totalUSD;
+      totalVES += s.totalVES;
+      totalCostUSD += s.totalCostUSD;
+      for (const p of s.payments) {
+        if (p.method === 'usd_cash') cashUSD += p.amountUSD;
+        if (p.method === 'ves_cash') cashVES += p.amountVES;
+        if (p.method === 'pago_movil') pagoMovilVES += p.amountVES;
+        if (p.method === 'punto_venta') puntoVES += p.amountVES;
+        if (p.method === 'fiado') creditIssuedUSD += p.amountUSD;
+      }
+    }
+
+    let expensesUSD = 0;
+    let expensesVES = 0;
+    const expensesByCategory: Record<string, number> = {};
+
+    for (const e of weekExpenses) {
+      expensesUSD += e.amountUSD;
+      expensesVES += e.amountVES;
+      expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amountUSD;
+      if (e.paymentMethod === 'usd_cash') cashUSD -= e.amountUSD;
+      if (e.paymentMethod === 'ves_cash') cashVES -= e.amountVES;
+      if (e.paymentMethod === 'pago_movil') pagoMovilVES -= e.amountVES;
+      if (e.paymentMethod === 'punto_venta') puntoVES -= e.amountVES;
+    }
+
+    let creditCollectedUSD = 0;
+    for (const t of weekTrans) {
+      if (t.type === 'cargo' && !t.saleTicketId) creditIssuedUSD += t.amountUSD;
+      if (t.type === 'abono') {
+        creditCollectedUSD += t.amountUSD;
+        if (t.payments) {
+          for (const p of t.payments) {
+            if (p.method === 'usd_cash') cashUSD += p.amountUSD;
+            if (p.method === 'ves_cash') cashVES += p.amountVES;
+            if (p.method === 'pago_movil') pagoMovilVES += p.amountVES;
+            if (p.method === 'punto_venta') puntoVES += p.amountVES;
+          }
+        }
+      }
+    }
+
+    const grossProfitUSD = Math.round((totalUSD - totalCostUSD) * 100) / 100;
+    const netProfitUSD = Math.round((grossProfitUSD - expensesUSD) * 100) / 100;
+    const profitMarginPercent = totalUSD > 0 ? Math.round((netProfitUSD / totalUSD) * 1000) / 10 : 0;
+    const ticketsCount = weekSales.length;
+    const averageTicketUSD = ticketsCount > 0 ? Math.round((totalUSD / ticketsCount) * 100) / 100 : 0;
+    const averageDailyUSD = Math.round((totalUSD / 7) * 100) / 100;
+
+    return {
+      totalUSD: Math.round(totalUSD * 100) / 100,
+      totalVES: Math.round(totalVES * 100) / 100,
+      totalCostUSD: Math.round(totalCostUSD * 100) / 100,
+      grossProfitUSD,
+      expensesUSD: Math.round(expensesUSD * 100) / 100,
+      expensesVES: Math.round(expensesVES * 100) / 100,
+      netProfitUSD,
+      profitMarginPercent,
+      ticketsCount,
+      averageTicketUSD,
+      averageDailyUSD,
+      cashUSD: Math.max(0, Math.round(cashUSD * 100) / 100),
+      cashVES: Math.max(0, Math.round(cashVES * 100) / 100),
+      pagoMovilVES: Math.max(0, Math.round(pagoMovilVES * 100) / 100),
+      puntoVES: Math.max(0, Math.round(puntoVES * 100) / 100),
+      creditIssuedUSD: Math.round(creditIssuedUSD * 100) / 100,
+      creditCollectedUSD: Math.round(creditCollectedUSD * 100) / 100,
+      expensesByCategory,
+    };
+  }, [sales, expenses, transactions]);
+
   // Top Productos Más Vendidos
   const topSellingProducts = useMemo(() => {
     const map: Record<string, { quantity: number; totalUSD: number }> = {};
@@ -327,7 +454,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .slice(0, 8);
   }, [sales]);
 
-  // Resumen Mensual
+  // Resumen Mensual Completo
   const monthlySummary = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
@@ -337,23 +464,96 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const prevMonthSales = sales.filter(
       (s) => s.timestamp >= startOfPrevMonth && s.timestamp < startOfMonth
     );
+    const currentMonthExpenses = expenses.filter((e) => e.timestamp >= startOfMonth);
+    const currentMonthTrans = transactions.filter((t) => t.timestamp >= startOfMonth);
 
-    const currentUSD = currentMonthSales.reduce((acc, s) => acc + s.totalUSD, 0);
-    const currentCost = currentMonthSales.reduce((acc, s) => acc + s.totalCostUSD, 0);
-    const currentVES = currentMonthSales.reduce((acc, s) => acc + s.totalVES, 0);
+    let totalUSD = 0;
+    let totalVES = 0;
+    let totalCostUSD = 0;
+    let cashUSD = 0;
+    let cashVES = 0;
+    let pagoMovilVES = 0;
+    let puntoVES = 0;
+
+    let creditIssuedUSD = 0;
+    for (const s of currentMonthSales) {
+      totalUSD += s.totalUSD;
+      totalVES += s.totalVES;
+      totalCostUSD += s.totalCostUSD;
+      for (const p of s.payments) {
+        if (p.method === 'usd_cash') cashUSD += p.amountUSD;
+        if (p.method === 'ves_cash') cashVES += p.amountVES;
+        if (p.method === 'pago_movil') pagoMovilVES += p.amountVES;
+        if (p.method === 'punto_venta') puntoVES += p.amountVES;
+        if (p.method === 'fiado') creditIssuedUSD += p.amountUSD;
+      }
+    }
+
+    let expensesUSD = 0;
+    let expensesVES = 0;
+    const expensesByCategory: Record<string, number> = {};
+
+    for (const e of currentMonthExpenses) {
+      expensesUSD += e.amountUSD;
+      expensesVES += e.amountVES;
+      expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amountUSD;
+      if (e.paymentMethod === 'usd_cash') cashUSD -= e.amountUSD;
+      if (e.paymentMethod === 'ves_cash') cashVES -= e.amountVES;
+      if (e.paymentMethod === 'pago_movil') pagoMovilVES -= e.amountVES;
+      if (e.paymentMethod === 'punto_venta') puntoVES -= e.amountVES;
+    }
+
+    let creditCollectedUSD = 0;
+    for (const t of currentMonthTrans) {
+      if (t.type === 'cargo' && !t.saleTicketId) creditIssuedUSD += t.amountUSD;
+      if (t.type === 'abono') {
+        creditCollectedUSD += t.amountUSD;
+        if (t.payments) {
+          for (const p of t.payments) {
+            if (p.method === 'usd_cash') cashUSD += p.amountUSD;
+            if (p.method === 'ves_cash') cashVES += p.amountVES;
+            if (p.method === 'pago_movil') pagoMovilVES += p.amountVES;
+            if (p.method === 'punto_venta') puntoVES += p.amountVES;
+          }
+        }
+      }
+    }
+
     const prevUSD = prevMonthSales.reduce((acc, s) => acc + s.totalUSD, 0);
-
-    const growth = prevUSD > 0 ? Math.round(((currentUSD - prevUSD) / prevUSD) * 100) : 0;
+    const growth = prevUSD > 0 ? Math.round(((totalUSD - prevUSD) / prevUSD) * 100) : 0;
+    const grossProfitUSD = Math.round((totalUSD - totalCostUSD) * 100) / 100;
+    const netProfitUSD = Math.round((grossProfitUSD - expensesUSD) * 100) / 100;
+    const profitMarginPercent = totalUSD > 0 ? Math.round((netProfitUSD / totalUSD) * 1000) / 10 : 0;
+    const ticketsCount = currentMonthSales.length;
+    const averageTicketUSD = ticketsCount > 0 ? Math.round((totalUSD / ticketsCount) * 100) / 100 : 0;
+    const daysElapsed = Math.max(1, now.getDate());
+    const averageDailyUSD = Math.round((totalUSD / daysElapsed) * 100) / 100;
+    const collectionRatePercent = creditIssuedUSD > 0 ? Math.round((creditCollectedUSD / creditIssuedUSD) * 1000) / 10 : 100;
 
     return {
       monthName: now.toLocaleDateString('es-VE', { month: 'long', year: 'numeric' }),
-      totalUSD: Math.round(currentUSD * 100) / 100,
-      totalVES: Math.round(currentVES * 100) / 100,
-      netProfitUSD: Math.round((currentUSD - currentCost) * 100) / 100,
+      totalUSD: Math.round(totalUSD * 100) / 100,
+      totalVES: Math.round(totalVES * 100) / 100,
+      totalCostUSD: Math.round(totalCostUSD * 100) / 100,
+      grossProfitUSD,
+      expensesUSD: Math.round(expensesUSD * 100) / 100,
+      expensesVES: Math.round(expensesVES * 100) / 100,
+      netProfitUSD,
+      profitMarginPercent,
       growthPercent: growth,
-      ticketsCount: currentMonthSales.length,
+      ticketsCount,
+      averageTicketUSD,
+      averageDailyUSD,
+      cashUSD: Math.max(0, Math.round(cashUSD * 100) / 100),
+      cashVES: Math.max(0, Math.round(cashVES * 100) / 100),
+      pagoMovilVES: Math.max(0, Math.round(pagoMovilVES * 100) / 100),
+      puntoVES: Math.max(0, Math.round(puntoVES * 100) / 100),
+      creditIssuedUSD: Math.round(creditIssuedUSD * 100) / 100,
+      creditCollectedUSD: Math.round(creditCollectedUSD * 100) / 100,
+      collectionRatePercent,
+      expensesByCategory,
     };
-  }, [sales]);
+  }, [sales, expenses, transactions]);
 
   return (
     <ReportsContext.Provider
@@ -362,6 +562,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
         recordSale,
         dailySummary,
         weeklySalesData,
+        weeklySummary,
         topSellingProducts,
         monthlySummary,
       }}

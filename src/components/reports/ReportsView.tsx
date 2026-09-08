@@ -25,11 +25,26 @@ import { useInventory } from '../../context/InventoryContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useExpenses } from '../../context/ExpensesContext';
 import { useAuth } from '../../context/AuthContext';
-import { generateDailyClosingWhatsApp, openWhatsAppLink } from '../../services/whatsapp';
+import { 
+  generateDailyClosingWhatsApp, 
+  generateWeeklyReportWhatsApp, 
+  generateMonthlyReportWhatsApp, 
+  openWhatsAppLink 
+} from '../../services/whatsapp';
 import { ExpenseModal } from '../expenses/ExpenseModal';
 
+const categoryMeta: Record<string, { label: string; icon: string; bg: string; text: string }> = {
+  gasolina: { label: 'Gasolina / Planta', icon: '⛽', bg: 'bg-amber-100', text: 'text-amber-800' },
+  personal: { label: 'Personal / Sueldos', icon: '👷', bg: 'bg-blue-100', text: 'text-blue-800' },
+  proveedor: { label: 'Pago a Proveedor', icon: '🚛', bg: 'bg-purple-100', text: 'text-purple-800' },
+  servicios: { label: 'Servicios (Luz/Net)', icon: '💡', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  suministros: { label: 'Bolsas / Hielo', icon: '🛍️', bg: 'bg-pink-100', text: 'text-pink-800' },
+  mantenimiento: { label: 'Mantenimiento', icon: '🔧', bg: 'bg-orange-100', text: 'text-orange-800' },
+  otro: { label: 'Otro Imprevisto', icon: '📦', bg: 'bg-slate-100', text: 'text-slate-800' },
+};
+
 export const ReportsView: React.FC = () => {
-  const { dailySummary, weeklySalesData, topSellingProducts, monthlySummary, sales } = useReports();
+  const { dailySummary, weeklySalesData, weeklySummary, topSellingProducts, monthlySummary, sales } = useReports();
   const { products } = useInventory();
   const { effectiveRate } = useCurrency();
   const { tenant } = useAuth();
@@ -103,6 +118,16 @@ export const ReportsView: React.FC = () => {
         category: e.category,
       }))
     );
+    openWhatsAppLink(tenant?.phone || '', text);
+  };
+
+  const handleShareWeeklyWhatsApp = () => {
+    const text = generateWeeklyReportWhatsApp(weeklySummary, tenant?.name || 'BodegaPro');
+    openWhatsAppLink(tenant?.phone || '', text);
+  };
+
+  const handleShareMonthlyWhatsApp = () => {
+    const text = generateMonthlyReportWhatsApp(monthlySummary, tenant?.name || 'BodegaPro');
     openWhatsAppLink(tenant?.phone || '', text);
   };
 
@@ -688,12 +713,87 @@ export const ReportsView: React.FC = () => {
         {activeReportTab === 'weekly' && (
           <div className="space-y-4 max-w-4xl mx-auto">
             
-            {/* 7-Day Chart */}
+            {/* Header banner with WhatsApp sharing */}
+            <div className="p-4 rounded-2xl bg-brand-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+              <div>
+                <span className="text-[10px] text-brand-emerald-400 font-bold uppercase tracking-widest block">
+                  Rendimiento Semanal (7 Días)
+                </span>
+                <h3 className="text-lg font-black capitalize">Balance de los Últimos 7 Días</h3>
+                <p className="text-xs text-slate-400">
+                  {weeklySummary.ticketsCount} tickets de venta • Promedio diario: ${weeklySummary.averageDailyUSD.toFixed(2)} / día
+                </p>
+              </div>
+
+              <button
+                onClick={handleShareWeeklyWhatsApp}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-sm transition"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Enviar Balance Semanal por WhatsApp</span>
+              </button>
+            </div>
+
+            {/* Main KPI Cards (Semana) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Facturación 7 Días
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
+                  ${weeklySummary.totalUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-slate-500 font-semibold block mt-0.5 truncate">
+                  Bs {weeklySummary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-rose-200 bg-rose-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 uppercase tracking-wider block">
+                  Gastos de Operación
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-rose-600 block mt-1">
+                  -${weeklySummary.expensesUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-rose-500 font-semibold block mt-0.5 truncate">
+                  Bs {weeklySummary.expensesVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                  Ganancia Neta Real
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 block mt-1">
+                  +${weeklySummary.netProfitUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-emerald-800 font-medium block mt-0.5 truncate">
+                  Margen real: {weeklySummary.profitMarginPercent.toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Ticket Promedio
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
+                  ${weeklySummary.averageTicketUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-slate-400 block mt-0.5">
+                  {weeklySummary.ticketsCount} compras registradas
+                </span>
+              </div>
+            </div>
+
+            {/* 7-Day Chart with Summary */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <div>
-                  <h4 className="font-black text-base text-slate-900">Tendencia de Ventas (Últimos 7 Días)</h4>
-                  <p className="text-xs text-slate-500">Ventas en USD por día de la semana</p>
+                  <h4 className="font-black text-base text-slate-900">Tendencia de Ventas Diarias</h4>
+                  <p className="text-xs text-slate-500">Ventas en USD por día en los últimos 7 días</p>
+                </div>
+                <div className="text-xs text-slate-600 font-semibold bg-slate-50 px-3 py-1 rounded-xl border border-slate-200 self-start sm:self-auto">
+                  Ritmo: <strong className="text-brand-emerald-700 font-black">${weeklySummary.averageDailyUSD.toFixed(2)}/día</strong>
                 </div>
               </div>
 
@@ -725,30 +825,164 @@ export const ReportsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Top Selling Products */}
+            {/* Canales de Cobro Semanales */}
             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-black text-sm text-slate-900">Productos Más Vendidos</h4>
-              
-              {topSellingProducts.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">No hay ventas registradas aún.</p>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {topSellingProducts.map((p, i) => (
-                    <div key={i} className="py-2.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center space-x-3">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-[11px]">
-                          #{i + 1}
-                        </span>
-                        <div>
-                          <span className="font-bold text-slate-800">{p.name}</span>
-                          <span className="text-[11px] text-slate-400 block">{p.quantity} unidades despachadas</span>
-                        </div>
-                      </div>
-                      <span className="font-black text-slate-900">${p.totalUSD.toFixed(2)}</span>
+              <h4 className="font-black text-sm text-slate-900 tracking-tight">
+                Canales de Cobro Acumulados (Últimos 7 Días)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4" />
                     </div>
-                  ))}
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Efectivo en Dólares ($)</span>
+                      <span className="text-[10px] text-slate-400">Total recaudado 7 días</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-emerald-700">
+                    ${weeklySummary.cashUSD.toFixed(2)}
+                  </span>
                 </div>
-              )}
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Efectivo en Bolívares (Bs)</span>
+                      <span className="text-[10px] text-slate-400">Total recaudado 7 días</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-blue-700">
+                    Bs {weeklySummary.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Pago Móvil Recibido</span>
+                      <span className="text-[10px] text-slate-400">Transferencias bancarias</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-indigo-700">
+                    Bs {weeklySummary.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Punto de Venta</span>
+                      <span className="text-[10px] text-slate-400">Tarjetas de débito</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-amber-700">
+                    Bs {weeklySummary.puntoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Fiado balance de la semana */}
+              <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/40 flex items-center justify-between mt-2">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-800 block">Movimiento de Fiados de la Semana</span>
+                    <span className="text-[10px] text-slate-500">
+                      Fiados concedidos: ${weeklySummary.creditIssuedUSD.toFixed(2)} • Abonos cobrados: ${weeklySummary.creditCollectedUSD.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-slate-700 block">Balance Neto Fiados:</span>
+                  <span className={`text-sm font-black ${weeklySummary.creditCollectedUSD >= weeklySummary.creditIssuedUSD ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    ${(weeklySummary.creditCollectedUSD - weeklySummary.creditIssuedUSD).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dos Columnas: Top Productos y Gastos Semanales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Top Selling Products */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center space-x-2">
+                  <Package className="w-4 h-4 text-brand-emerald-600" />
+                  <span>Productos Más Vendidos (7 Días)</span>
+                </h4>
+                
+                {topSellingProducts.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">No hay ventas registradas aún.</p>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {topSellingProducts.map((p, i) => (
+                      <div key={i} className="py-2.5 flex items-center justify-between text-xs">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-[11px] shrink-0">
+                            #{i + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-800 block truncate">{p.name}</span>
+                            <span className="text-[10px] text-slate-400 block">{p.quantity} despachados</span>
+                          </div>
+                        </div>
+                        <span className="font-black text-slate-900 shrink-0">${p.totalUSD.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Gastos de la Semana por Categoría */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center space-x-2">
+                  <MinusCircle className="w-4 h-4 text-rose-600" />
+                  <span>Salidas de Dinero por Categoría</span>
+                </h4>
+
+                {weeklySummary.expensesUSD === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">No se registraron gastos en los últimos 7 días.</p>
+                ) : (
+                  <div className="space-y-2.5 pt-1">
+                    {Object.entries(weeklySummary.expensesByCategory).map(([catKey, amount]) => {
+                      const meta = categoryMeta[catKey] || categoryMeta.otro;
+                      const percent = Math.round((amount / (weeklySummary.expensesUSD || 1)) * 100);
+
+                      return (
+                        <div key={catKey} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 flex items-center space-x-1.5">
+                              <span>{meta.icon}</span>
+                              <span>{meta.label}</span>
+                            </span>
+                            <span className="font-black text-rose-600">
+                              -${amount.toFixed(2)} <span className="text-[10px] text-slate-400 font-semibold">({percent}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-rose-500 rounded-full"
+                              style={{ width: `${Math.min(100, percent)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -757,73 +991,274 @@ export const ReportsView: React.FC = () => {
         {activeReportTab === 'monthly' && (
           <div className="space-y-4 max-w-4xl mx-auto">
             
-            <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-brand-emerald-600 uppercase tracking-wider block">
-                    Salud y Rentabilidad del Negocio
-                  </span>
-                  <h3 className="text-xl font-black text-slate-900 capitalize">
-                    {monthlySummary.monthName}
-                  </h3>
+            {/* Header banner with WhatsApp sharing */}
+            <div className="p-4 rounded-2xl bg-brand-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+              <div>
+                <span className="text-[10px] text-brand-emerald-400 font-bold uppercase tracking-widest block">
+                  Cierre y Salud Financiera Mensual
+                </span>
+                <div className="flex items-center space-x-2.5 mt-0.5">
+                  <h3 className="text-xl font-black capitalize">{monthlySummary.monthName}</h3>
+                  {monthlySummary.growthPercent !== 0 && (
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-black flex items-center space-x-1 ${
+                        monthlySummary.growthPercent >= 0
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                      }`}
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                      <span>{monthlySummary.growthPercent > 0 ? '+' : ''}{monthlySummary.growthPercent}% vs mes anterior</span>
+                    </span>
+                  )}
                 </div>
-                {monthlySummary.growthPercent !== 0 && (
-                  <div
-                    className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-bold ${
-                      monthlySummary.growthPercent >= 0
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span>{monthlySummary.growthPercent > 0 ? '+' : ''}{monthlySummary.growthPercent}% vs mes anterior</span>
-                  </div>
-                )}
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {monthlySummary.ticketsCount} tickets de venta cobrados en el mes • Ritmo diario: ${monthlySummary.averageDailyUSD.toFixed(2)} / día
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Facturación Acumulada del Mes
-                  </span>
-                  <span className="text-2xl font-black text-slate-900 block mt-1">
-                    ${monthlySummary.totalUSD.toFixed(2)}
-                  </span>
-                  <span className="text-xs text-slate-500 font-semibold block mt-0.5">
-                    Bs {monthlySummary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+              <button
+                onClick={handleShareMonthlyWhatsApp}
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-sm transition"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Enviar Cierre Mensual por WhatsApp</span>
+              </button>
+            </div>
+
+            {/* Main KPI Cards (Mes) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Facturación del Mes
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
+                  ${monthlySummary.totalUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-slate-500 font-semibold block mt-0.5 truncate">
+                  Bs {monthlySummary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-rose-200 bg-rose-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-rose-600 uppercase tracking-wider block">
+                  Gastos Operativos
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-rose-600 block mt-1">
+                  -${monthlySummary.expensesUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-rose-500 font-semibold block mt-0.5 truncate">
+                  Bs {monthlySummary.expensesVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
+                  Utilidad Neta Real
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-emerald-600 block mt-1">
+                  +${monthlySummary.netProfitUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-[11px] text-emerald-800 font-medium block mt-0.5 truncate">
+                  Margen de ganancia: {monthlySummary.profitMarginPercent.toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Venta Diaria Promedio
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-1">
+                  ${monthlySummary.averageDailyUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-slate-400 block mt-0.5">
+                  Ticket prom: ${monthlySummary.averageTicketUSD.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Canales de Cobro Acumulados del Mes */}
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-black text-sm text-slate-900 tracking-tight">
+                Ingresos y Cobranzas por Canal de Pago (Mes Completo)
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Efectivo en Dólares ($)</span>
+                      <span className="text-[10px] text-slate-400">Total mes en gaveta $</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-emerald-700">
+                    ${monthlySummary.cashUSD.toFixed(2)}
                   </span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200">
-                  <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
-                    Utilidad / Ganancia Neta del Mes
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Efectivo en Bolívares (Bs)</span>
+                      <span className="text-[10px] text-slate-400">Total mes en gaveta Bs</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-blue-700">
+                    Bs {monthlySummary.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-2xl font-black text-emerald-600 block mt-1">
-                    +${monthlySummary.netProfitUSD.toFixed(2)}
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Pago Móvil Recibido</span>
+                      <span className="text-[10px] text-slate-400">Total transferencias banco</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-indigo-700">
+                    Bs {monthlySummary.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className="text-xs text-emerald-700 font-medium block mt-0.5">
-                    Ganancia pura real acumulada
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-slate-800 block">Punto de Venta</span>
+                      <span className="text-[10px] text-slate-400">Lote bancario acumulado</span>
+                    </div>
+                  </div>
+                  <span className="text-base font-black text-amber-700">
+                    Bs {monthlySummary.puntoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Salud de Créditos y Fiados del Mes */}
+              <div className="p-3.5 rounded-xl border border-rose-200 bg-rose-50/40 flex items-center justify-between mt-2">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-xs text-slate-800 block">Control de Cartera y Fiados del Mes</span>
+                    <span className="text-[10px] text-slate-500">
+                      Otorgado: ${monthlySummary.creditIssuedUSD.toFixed(2)} • Recuperado: ${monthlySummary.creditCollectedUSD.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-slate-700 block">Tasa de Cobranza:</span>
+                  <span className="text-sm font-black text-emerald-600">
+                    {monthlySummary.collectionRatePercent.toFixed(1)}%
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Inventory Valuation Card */}
-            <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                  <Layers className="w-6 h-6" />
-                </div>
+            {/* Dos Columnas: Gastos del Mes y Valoración del Inventario */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Desglose de Gastos del Mes */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+                <h4 className="font-black text-sm text-slate-900 flex items-center space-x-2">
+                  <MinusCircle className="w-4 h-4 text-rose-600" />
+                  <span>Gastos del Mes por Categoría</span>
+                </h4>
+
+                {monthlySummary.expensesUSD === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">No se han registrado salidas de dinero este mes.</p>
+                ) : (
+                  <div className="space-y-2.5 pt-1">
+                    {Object.entries(monthlySummary.expensesByCategory).map(([catKey, amount]) => {
+                      const meta = categoryMeta[catKey] || categoryMeta.otro;
+                      const percent = Math.round((amount / (monthlySummary.expensesUSD || 1)) * 100);
+
+                      return (
+                        <div key={catKey} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 flex items-center space-x-1.5">
+                              <span>{meta.icon}</span>
+                              <span>{meta.label}</span>
+                            </span>
+                            <span className="font-black text-rose-600">
+                              -${amount.toFixed(2)} <span className="text-[10px] text-slate-400 font-semibold">({percent}%)</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-rose-500 rounded-full"
+                              style={{ width: `${Math.min(100, percent)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Inventario y Rentabilidad de Mercancía */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3 flex flex-col justify-between">
                 <div>
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                    Valor Total del Inventario en Bodega
-                  </span>
-                  <span className="text-xl font-black text-slate-900 block mt-0.5">
-                    ${inventoryValuationUSD.toFixed(2)}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    Calculado a último costo de reposición
-                  </span>
+                  <h4 className="font-black text-sm text-slate-900 flex items-center space-x-2">
+                    <Layers className="w-4 h-4 text-indigo-600" />
+                    <span>Valoración y Rendimiento del Inventario</span>
+                  </h4>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Salud patrimonial y costo de reposición del negocio.
+                  </p>
+
+                  <div className="space-y-3 pt-3">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Valor Stock en Bodega
+                        </span>
+                        <span className="text-base font-black text-slate-900">
+                          ${inventoryValuationUSD.toFixed(2)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">A costo de reposición</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                          Costo Mercancía Vendida
+                        </span>
+                        <span className="text-base font-black text-slate-900">
+                          ${monthlySummary.totalCostUSD.toFixed(2)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium">Costo de artículos</span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                          Utilidad Bruta de Mercancía
+                        </span>
+                        <span className="text-base font-black text-emerald-700">
+                          +${monthlySummary.grossProfitUSD.toFixed(2)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-emerald-700 font-bold">Antes de gastos</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-100 text-center">
+                  Cifras calculadas automáticamente en tiempo real
                 </div>
               </div>
             </div>

@@ -150,6 +150,104 @@ Generado automáticamente por BodegaPro.`;
   return encodeURIComponent(text);
 }
 
+export function generateWeeklyReportWhatsApp(
+  summary: {
+    totalUSD: number;
+    totalVES: number;
+    grossProfitUSD: number;
+    expensesUSD: number;
+    netProfitUSD: number;
+    profitMarginPercent: number;
+    ticketsCount: number;
+    averageTicketUSD: number;
+    averageDailyUSD: number;
+    cashUSD: number;
+    cashVES: number;
+    pagoMovilVES: number;
+    puntoVES: number;
+    creditIssuedUSD: number;
+    creditCollectedUSD: number;
+  },
+  storeName: string
+): string {
+  const text = `📈 *REPORTE SEMANAL (7 DÍAS) - ${storeName}*
+🗓️ Período: Últimos 7 días
+
+💵 *Facturación 7 Días:* $${summary.totalUSD.toFixed(2)} (Bs ${summary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })})
+💸 *Gastos de Operación:* -$${summary.expensesUSD.toFixed(2)}
+🏆 *Ganancia Neta Real:* +$${summary.netProfitUSD.toFixed(2)} (Margen: ${summary.profitMarginPercent.toFixed(1)}%)
+
+📊 *Rendimiento y Promedios:*
+• Venta diaria promedio: $${summary.averageDailyUSD.toFixed(2)} / día
+• Total tickets cobrados: ${summary.ticketsCount} compras
+• Ticket promedio: $${summary.averageTicketUSD.toFixed(2)} / cliente
+
+📦 *Canales de Cobro de la Semana:*
+• 💵 Efectivo $: $${summary.cashUSD.toFixed(2)}
+• 💵 Efectivo Bs: Bs ${summary.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+• 📱 Pago Móvil: Bs ${summary.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+• 💳 Punto de Venta: Bs ${summary.puntoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+
+📝 *Movimiento de Fiados de la Semana:*
+• Fiados otorgados: $${summary.creditIssuedUSD.toFixed(2)}
+• Abonos cobrados: $${summary.creditCollectedUSD.toFixed(2)}
+
+Generado automáticamente por BodegaPro.`;
+
+  return encodeURIComponent(text);
+}
+
+export function generateMonthlyReportWhatsApp(
+  summary: {
+    monthName: string;
+    totalUSD: number;
+    totalVES: number;
+    grossProfitUSD: number;
+    expensesUSD: number;
+    netProfitUSD: number;
+    profitMarginPercent: number;
+    growthPercent: number;
+    ticketsCount: number;
+    averageTicketUSD: number;
+    averageDailyUSD: number;
+    cashUSD: number;
+    cashVES: number;
+    pagoMovilVES: number;
+    puntoVES: number;
+    creditIssuedUSD: number;
+    creditCollectedUSD: number;
+    collectionRatePercent: number;
+  },
+  storeName: string
+): string {
+  const text = `📊 *CIERRE FINANCIERO MENSUAL - ${storeName}*
+🗓️ Mes: ${summary.monthName.toUpperCase()}
+${summary.growthPercent !== 0 ? `🚀 Crecimiento vs mes anterior: ${summary.growthPercent > 0 ? '+' : ''}${summary.growthPercent}%\n` : ''}
+💵 *Facturación Acumulada:* $${summary.totalUSD.toFixed(2)} (Bs ${summary.totalVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })})
+💸 *Gastos de Caja / Operación:* -$${summary.expensesUSD.toFixed(2)}
+🏆 *Utilidad Neta de Bolsillo:* +$${summary.netProfitUSD.toFixed(2)} (Margen: ${summary.profitMarginPercent.toFixed(1)}%)
+
+📈 *Indicadores Clave del Mes:*
+• Venta promedio por día: $${summary.averageDailyUSD.toFixed(2)}
+• Tickets / compras cobradas: ${summary.ticketsCount} tickets
+• Compra promedio: $${summary.averageTicketUSD.toFixed(2)} / ticket
+
+📦 *Ingresos por Canal de Pago:*
+• 💵 Efectivo $: $${summary.cashUSD.toFixed(2)}
+• 💵 Efectivo Bs: Bs ${summary.cashVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+• 📱 Pago Móvil: Bs ${summary.pagoMovilVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+• 💳 Punto de Venta: Bs ${summary.puntoVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+
+📝 *Créditos y Fiados del Mes:*
+• Fiados otorgados: $${summary.creditIssuedUSD.toFixed(2)}
+• Abonos recuperados: $${summary.creditCollectedUSD.toFixed(2)}
+• Tasa de cobranza: ${summary.collectionRatePercent.toFixed(1)}%
+
+Generado automáticamente por BodegaPro.`;
+
+  return encodeURIComponent(text);
+}
+
 export function openWhatsAppLink(phone: string, encodedText: string): void {
   const clean = sanitizePhone(phone);
   const url = clean.length > 5 
