@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función para identificar al Superadmin
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.email == 'omanjrvasquez@gmail.com';
+    }
+
+    // Función para verificar autenticación
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Colección de Tenants (Comercios)
+    match /tenants/{tenantId} {
+      // Superadmin puede leer y escribir cualquier tenant
+      allow read, write: if isSuperAdmin();
+      // El dueño del tenant puede leer sus propios datos si está autenticado
+      allow read: if isAuthenticated() && (resource == null || resource.data.ownerEmail == request.auth.token.email);
+      allow create: if isAuthenticated() && request.resource.data.ownerEmail == request.auth.token.email;
+      allow update: if isAuthenticated() && resource.data.ownerEmail == request.auth.token.email;
+    }
+
+    // Reglas Multitenant para subcolecciones de cada bodega
+    match /tenants/{tenantId}/{collectionName}/{docId} {
+      allow read, write: if isSuperAdmin() || (
+        isAuthenticated() && 
+        get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerEmail == request.auth.token.email
+      );
+    }
+  }
+}
