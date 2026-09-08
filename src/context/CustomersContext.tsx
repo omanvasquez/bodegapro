@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Customer, CreditTransaction, PaymentSplit } from '../types';
 import { dbInit } from '../services/localDatabase';
 import { useCurrency } from './CurrencyContext';
+import { useAuth } from './AuthContext';
+import { db } from '../services/firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 interface CustomersContextType {
   customers: Customer[];
@@ -35,11 +38,77 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dbInit.getTransactions()
   );
   const { effectiveRate, toVES } = useCurrency();
+  const { tenant } = useAuth();
+
+  // Sincronización en segundo plano con Firestore (Offline-First)
+  useEffect(() => {
+    if (!db || !tenant?.id) return;
+
+    // 1. Clientes
+    const custCol = collection(db, 'tenants', tenant.id, 'customers');
+    const unsubCust = onSnapshot(
+      custCol,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const cloudCustomers: Customer[] = [];
+          snapshot.forEach((docSnap) => {
+            cloudCustomers.push(docSnap.data() as Customer);
+          });
+          cloudCustomers.sort((a, b) => a.name.localeCompare(b.name));
+          setCustomers(cloudCustomers);
+          dbInit.saveCustomers(cloudCustomers);
+        } else {
+          // Si Firestore está vacío (primer uso), respaldar clientes iniciales
+          const local = dbInit.getCustomers();
+          if (local && local.length > 0) {
+            local.forEach((c) => {
+              setDoc(doc(db, 'tenants', tenant.id, 'customers', c.id), c).catch(() => {});
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Sincronización de clientes en segundo plano:', err);
+      }
+    );
+
+    // 2. Transacciones (Micro-Ledger de fiados y abonos)
+    const txCol = collection(db, 'tenants', tenant.id, 'transactions');
+    const unsubTx = onSnapshot(
+      txCol,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const cloudTx: CreditTransaction[] = [];
+          snapshot.forEach((docSnap) => {
+            cloudTx.push(docSnap.data() as CreditTransaction);
+          });
+          cloudTx.sort((a, b) => b.timestamp - a.timestamp);
+          setTransactions(cloudTx);
+          dbInit.saveTransactions(cloudTx);
+        } else {
+          const localTx = dbInit.getTransactions();
+          if (localTx && localTx.length > 0) {
+            localTx.forEach((tx) => {
+              setDoc(doc(db, 'tenants', tenant.id, 'transactions', tx.id), tx).catch(() => {});
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Sincronización de transacciones en segundo plano:', err);
+      }
+    );
+
+    return () => {
+      unsubCust();
+      unsubTx();
+    };
+  }, [tenant?.id]);
 
   const addCustomer = (name: string, phone: string, creditLimitUSD: number): Customer => {
     const newCust: Customer = {
       id: 'cust_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      tenantId: 'tenant_cojedes_01',
+      tenantId: tenant?.id || 'tenant_cojedes_01',
       name,
       phone,
       creditLimitUSD,
@@ -51,15 +120,26 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const updated = [newCust, ...customers];
     setCustomers(updated);
     dbInit.saveCustomers(updated);
+    if (db && tenant?.id) {
+      setDoc(doc(db, 'tenants', tenant.id, 'customers', newCust.id), newCust).catch(() => {});
+    }
     return newCust;
   };
 
   const updateCustomer = (id: string, updates: Partial<Customer>) => {
+    let changedCust: Customer | undefined;
     setCustomers((prev) => {
-      const updated = prev.map((c) =>
-        c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c
-      );
+      const updated = prev.map((c) => {
+        if (c.id === id) {
+          changedCust = { ...c, ...updates, updatedAt: Date.now() };
+          return changedCust;
+        }
+        return c;
+      });
       dbInit.saveCustomers(updated);
+      if (db && tenant?.id && changedCust) {
+        setDoc(doc(db, 'tenants', tenant.id, 'customers', id), changedCust).catch(() => {});
+      }
       return updated;
     });
   };
@@ -68,6 +148,9 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCustomers((prev) => {
       const updated = prev.filter((c) => c.id !== id);
       dbInit.saveCustomers(updated);
+      if (db && tenant?.id) {
+        deleteDoc(doc(db, 'tenants', tenant.id, 'customers', id)).catch(() => {});
+      }
       return updated;
     });
   };
@@ -138,6 +221,11 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dbInit.saveCustomers(updatedCustomers);
     dbInit.saveTransactions(updatedTx);
 
+    if (db && tenant?.id) {
+      setDoc(doc(db, 'tenants', tenant.id, 'customers', customerId), updatedCustomer).catch(() => {});
+      setDoc(doc(db, 'tenants', tenant.id, 'transactions', tx.id), tx).catch(() => {});
+    }
+
     return {
       success: true,
       message: `Cargo de $${amountUSD.toFixed(2)} registrado con éxito.`,
@@ -199,6 +287,11 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setTransactions(updatedTx);
     dbInit.saveCustomers(updatedCustomers);
     dbInit.saveTransactions(updatedTx);
+
+    if (db && tenant?.id) {
+      setDoc(doc(db, 'tenants', tenant.id, 'customers', customerId), updatedCustomer).catch(() => {});
+      setDoc(doc(db, 'tenants', tenant.id, 'transactions', tx.id), tx).catch(() => {});
+    }
 
     return {
       success: true,

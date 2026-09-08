@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { SaleTicket, PaymentSplit, TicketItemSnapshot } from '../types';
 import { dbInit } from '../services/localDatabase';
 import { useCurrency } from './CurrencyContext';
 import { useInventory } from './InventoryContext';
 import { useCustomers } from './CustomersContext';
+import { useAuth } from './AuthContext';
+import { db } from '../services/firebase';
+import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 interface ReportsContextType {
   sales: SaleTicket[];
@@ -57,6 +60,41 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { effectiveRate, rates, isOverride } = useCurrency();
   const { products, adjustStock } = useInventory();
   const { recordCharge, transactions } = useCustomers();
+  const { tenant } = useAuth();
+
+  // Sincronización en segundo plano de tickets de venta (Offline-First)
+  useEffect(() => {
+    if (!db || !tenant?.id) return;
+
+    const salesCol = collection(db, 'tenants', tenant.id, 'sales');
+    const unsubscribe = onSnapshot(
+      salesCol,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const cloudSales: SaleTicket[] = [];
+          snapshot.forEach((docSnap) => {
+            cloudSales.push(docSnap.data() as SaleTicket);
+          });
+          cloudSales.sort((a, b) => b.timestamp - a.timestamp);
+          setSales(cloudSales);
+          dbInit.saveSales(cloudSales);
+        } else {
+          // Si Firestore está vacío (primer uso), respaldar ventas locales
+          const localSales = dbInit.getSales();
+          if (localSales && localSales.length > 0) {
+            localSales.forEach((s) => {
+              setDoc(doc(db, 'tenants', tenant.id, 'sales', s.id), s).catch(() => {});
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Sincronización de ventas en segundo plano:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [tenant?.id]);
 
   const recordSale = ({
     items,
@@ -120,7 +158,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const newTicket: SaleTicket = {
       id: ticketId,
-      tenantId: 'tenant_cojedes_01',
+      tenantId: tenant?.id || 'tenant_cojedes_01',
       ticketNumber: sales.length + 1001,
       timestamp: Date.now(),
       cashierName,
@@ -151,6 +189,10 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const updated = [newTicket, ...sales];
     setSales(updated);
     dbInit.saveSales(updated);
+
+    if (db && tenant?.id) {
+      setDoc(doc(db, 'tenants', tenant.id, 'sales', newTicket.id), newTicket).catch(() => {});
+    }
 
     return newTicket;
   };

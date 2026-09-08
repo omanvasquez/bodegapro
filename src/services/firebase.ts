@@ -49,6 +49,7 @@ if (isFirebaseConfigured) {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),
+      ignoreUndefinedProperties: true,
     });
 
     googleProvider = new GoogleAuthProvider();

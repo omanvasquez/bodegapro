@@ -118,16 +118,30 @@ export const Header: React.FC<HeaderProps> = ({
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-brand-emerald-500' : ''}`} />
           </button>
 
-          {/* Online/Offline status pill */}
+          {/* Cloud Sync Status Indicator */}
           <div
-            className={`hidden md:flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition ${
               isOnline
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
             }`}
+            title={
+              isOnline 
+                ? 'Nube activa: Los cambios se sincronizan en tiempo real con todos tus dispositivos.' 
+                : 'Modo sin internet: Puedes seguir cobrando y vendiendo con total normalidad. Los datos se sincronizarán al recuperar la conexión.'
+            }
           >
-            {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-            <span>{isOnline ? 'Online' : 'Offline'}</span>
+            {isOnline ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="hidden sm:inline font-bold">Nube Activa</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3 text-amber-400" />
+                <span className="hidden sm:inline font-bold">Sin Internet (Offline)</span>
+              </>
+            )}
           </div>
 
           {/* Install App Button */}

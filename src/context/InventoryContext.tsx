@@ -1,7 +1,10 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, InventoryWaste, WasteReason, ProductUnit } from '../types';
 import { dbInit } from '../services/localDatabase';
 import { useCurrency } from './CurrencyContext';
+import { useAuth } from './AuthContext';
+import { db } from '../services/firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 interface InventoryContextType {
   products: Product[];
@@ -22,6 +25,41 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [products, setProducts] = useState<Product[]>(() => dbInit.getProducts());
   const [wastes, setWastes] = useState<InventoryWaste[]>(() => dbInit.getWastes());
   const { toVES, toUSD } = useCurrency();
+  const { tenant } = useAuth();
+
+  // Sincronización en segundo plano con Firestore (Offline-First)
+  useEffect(() => {
+    if (!db || !tenant?.id) return;
+
+    const colRef = collection(db, 'tenants', tenant.id, 'products');
+    const unsubscribe = onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const cloudProducts: Product[] = [];
+          snapshot.forEach((docSnap) => {
+            cloudProducts.push(docSnap.data() as Product);
+          });
+          cloudProducts.sort((a, b) => a.name.localeCompare(b.name));
+          setProducts(cloudProducts);
+          dbInit.saveProducts(cloudProducts);
+        } else {
+          // Si Firestore está vacío (primer uso), respaldar productos iniciales
+          const local = dbInit.getProducts();
+          if (local && local.length > 0) {
+            local.forEach((prod) => {
+              setDoc(doc(db, 'tenants', tenant.id, 'products', prod.id), prod).catch(() => {});
+            });
+          }
+        }
+      },
+      (err) => {
+        console.warn('Sincronización de inventario en segundo plano:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [tenant?.id]);
 
   const getProductPriceUSD = (product: Product): number => {
     if (product.pricingMode === 'USD') {
@@ -41,37 +79,57 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const product: Product = {
       ...newProd,
       id: 'prod_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      tenantId: tenant?.id || 'tenant_cojedes_01',
       updatedAt: Date.now(),
     };
     const updated = [product, ...products];
     setProducts(updated);
     dbInit.saveProducts(updated);
+    if (db && tenant?.id) {
+      setDoc(doc(db, 'tenants', tenant.id, 'products', product.id), product).catch(() => {});
+    }
   };
 
   const updateProduct = (id: string, updates: Partial<Product>) => {
-    const updated = products.map((p) =>
-      p.id === id ? { ...p, ...updates, updatedAt: Date.now() } : p
-    );
+    let changed: Product | undefined;
+    const updated = products.map((p) => {
+      if (p.id === id) {
+        changed = { ...p, ...updates, updatedAt: Date.now() };
+        return changed;
+      }
+      return p;
+    });
     setProducts(updated);
     dbInit.saveProducts(updated);
+    if (db && tenant?.id && changed) {
+      setDoc(doc(db, 'tenants', tenant.id, 'products', id), changed).catch(() => {});
+    }
   };
 
   const deleteProduct = (id: string) => {
     const updated = products.filter((p) => p.id !== id);
     setProducts(updated);
     dbInit.saveProducts(updated);
+    if (db && tenant?.id) {
+      deleteDoc(doc(db, 'tenants', tenant.id, 'products', id)).catch(() => {});
+    }
   };
 
   const adjustStock = (productId: string, quantityDelta: number) => {
     setProducts((prev) => {
+      let changed: Product | undefined;
       const updated = prev.map((p) => {
         if (p.id === productId) {
           const newStock = Math.max(0, Math.round((p.stock + quantityDelta) * 1000) / 1000);
-          return { ...p, stock: newStock, updatedAt: Date.now() };
+          changed = { ...p, stock: newStock, updatedAt: Date.now() };
+          return changed;
         }
         return p;
       });
       dbInit.saveProducts(updated);
+      if (db && tenant?.id && changed) {
+        setDoc(doc(db, 'tenants', tenant.id, 'products', productId), changed).catch(() => {});
+      }
       return updated;
     });
   };
