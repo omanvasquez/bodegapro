@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, ShieldAlert, CheckCircle2, XCircle, Store, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, ShieldAlert, CheckCircle2, XCircle, Store, Clock, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { TenantStatus } from '../../types';
 
@@ -10,6 +10,7 @@ interface SuperAdminModalProps {
 
 export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClose }) => {
   const { isSuperAdmin, allTenantsForSuperadmin, updateTenantStatus } = useAuth();
+  const [filter, setFilter] = useState<string>('todos');
 
   if (!isOpen) return null;
 
@@ -33,9 +34,17 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
     );
   }
 
+  const filtered = allTenantsForSuperadmin.filter((t) => {
+    if (filter === 'pendientes') return t.status === 'pendiente';
+    if (filter === 'activos') return t.status === 'activo' || t.status === 'trial';
+    if (filter === 'inactivos') return t.status === 'inactivo';
+    return true;
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full overflow-hidden flex flex-col max-h-[88vh]">
+        
         {/* Header */}
         <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -43,9 +52,9 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
               <ShieldAlert className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Panel Superadmin</h2>
+              <h2 className="text-lg font-black tracking-tight">Panel Superadmin</h2>
               <p className="text-xs text-amber-300">
-                Control de Suscripciones • Oman Vásquez
+                Aprobación y Control de Suscripciones • Oman Vásquez
               </p>
             </div>
           </div>
@@ -57,17 +66,53 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 flex items-start space-x-2">
-            <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <span>
-              Aquí puedes activar o suspender el acceso de cualquier bodega registrada. La conciliación de pagos y fechas maestras se administra en tu sistema central.
-            </span>
+        {/* Filter Tabs */}
+        <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
+          <div className="flex items-center space-x-1.5 overflow-x-auto">
+            <button
+              onClick={() => setFilter('todos')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                filter === 'todos' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border'
+              }`}
+            >
+              Todos ({allTenantsForSuperadmin.length})
+            </button>
+            <button
+              onClick={() => setFilter('pendientes')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                filter === 'pendientes' ? 'bg-amber-500 text-slate-950' : 'bg-white text-slate-600 border'
+              }`}
+            >
+              Por Aprobar ({allTenantsForSuperadmin.filter((t) => t.status === 'pendiente').length})
+            </button>
+            <button
+              onClick={() => setFilter('activos')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                filter === 'activos' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border'
+              }`}
+            >
+              Activos / Prueba
+            </button>
+            <button
+              onClick={() => setFilter('inactivos')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                filter === 'inactivos' ? 'bg-rose-600 text-white' : 'bg-white text-slate-600 border'
+              }`}
+            >
+              Suspendidos
+            </button>
           </div>
+        </div>
 
-          <div className="space-y-3">
-            {allTenantsForSuperadmin.map((tenant) => {
+        {/* Content List */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-3 flex-1">
+          {filtered.length === 0 ? (
+            <p className="text-center py-8 text-slate-400 text-xs font-semibold">
+              No hay comercios en esta categoría.
+            </p>
+          ) : (
+            filtered.map((tenant) => {
+              const isPendiente = tenant.status === 'pendiente';
               const isTrial = tenant.status === 'trial';
               const isActive = tenant.status === 'activo';
               const isInactive = tenant.status === 'inactivo';
@@ -75,62 +120,80 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
               return (
                 <div
                   key={tenant.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 gap-4 transition"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 shadow-xs gap-3 transition"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2">
                       <Store className="w-4 h-4 text-slate-500" />
                       <span className="font-bold text-sm text-slate-800">{tenant.name}</span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
                           isActive
                             ? 'bg-emerald-100 text-emerald-800'
                             : isTrial
                             ? 'bg-blue-100 text-blue-800'
+                            : isPendiente
+                            ? 'bg-amber-100 text-amber-800 animate-pulse'
                             : 'bg-rose-100 text-rose-800'
                         }`}
                       >
                         {tenant.status}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Encargado: <span className="font-semibold text-slate-700">{tenant.ownerName}</span> • {tenant.phone}
+
+                    <p className="text-xs text-slate-600">
+                      Encargado: <strong>{tenant.ownerName}</strong> • {tenant.phone}
                     </p>
                     <p className="text-[11px] text-slate-400 font-mono">
-                      ID: {tenant.id} • {tenant.ownerEmail}
+                      {tenant.ownerEmail} • ID: {tenant.id}
                     </p>
                   </div>
 
-                  {/* Toggle Button */}
-                  <div className="flex items-center space-x-2 self-end sm:self-center">
-                    <button
-                      onClick={() => {
-                        const nextStatus: TenantStatus = isActive ? 'inactivo' : 'activo';
-                        updateTenantStatus(tenant.id, nextStatus);
-                      }}
-                      className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition shadow-sm ${
-                        isActive
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-                          : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                      }`}
-                    >
-                      {isActive ? (
-                        <>
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Suspender</span>
-                        </>
-                      ) : (
-                        <>
+                  {/* Actions for Oman */}
+                  <div className="flex items-center space-x-2 self-end sm:self-center flex-wrap gap-y-2">
+                    {isPendiente && (
+                      <>
+                        <button
+                          onClick={() => updateTenantStatus(tenant.id, 'trial', 14)}
+                          className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm flex items-center space-x-1"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Aprobar Prueba (14d)</span>
+                        </button>
+                        <button
+                          onClick={() => updateTenantStatus(tenant.id, 'activo')}
+                          className="px-3 py-1.5 rounded-xl bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center space-x-1"
+                        >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Activar</span>
-                        </>
-                      )}
-                    </button>
+                          <span>Activar Plan</span>
+                        </button>
+                      </>
+                    )}
+
+                    {(isActive || isTrial) && (
+                      <button
+                        onClick={() => updateTenantStatus(tenant.id, 'inactivo')}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition flex items-center space-x-1"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Suspender</span>
+                      </button>
+                    )}
+
+                    {isInactive && (
+                      <button
+                        onClick={() => updateTenantStatus(tenant.id, 'activo')}
+                        className="px-3 py-1.5 rounded-xl bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold transition flex items-center space-x-1 shadow-sm"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Reactivar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
 
         {/* Footer */}
@@ -138,7 +201,7 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
           <span>Total Comercios: {allTenantsForSuperadmin.length}</span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 text-white rounded-xl font-semibold hover:bg-slate-700 transition"
+            className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition"
           >
             Listo
           </button>

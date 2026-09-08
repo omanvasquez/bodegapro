@@ -7,7 +7,8 @@ import {
   ShieldCheck, 
   Wifi, 
   WifiOff, 
-  Check
+  Check,
+  LogOut
 } from 'lucide-react';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,7 +20,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onOpenSuperAdmin }) => {
   const { effectiveRate, isOverride, isLoading, refreshRates, setManualOverride, rates } = useCurrency();
-  const { tenant, isSuperAdmin, trialDaysRemaining } = useAuth();
+  const { tenant, isSuperAdmin, logout, user } = useAuth();
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [showRateModal, setShowRateModal] = useState<boolean>(false);
   const [overrideInput, setOverrideInput] = useState<string>(rates.manualOverride.rate.toString());
@@ -65,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onOpenSuperAdmin })
               </span>
             </div>
             <p className="text-xs text-slate-400 truncate max-w-[140px] sm:max-w-xs">
-              {tenant.name}
+              {tenant?.name || 'Mi Comercio'}
             </p>
           </div>
         </div>
@@ -139,7 +140,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAbout, onOpenSuperAdmin })
             className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
             title="Acerca de BodegaPro"
           >
-            <Info className="w-5 h-5" />
+            <Info className="w-4 h-4" />
+          </button>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
+            title={`Cerrar sesión (${user?.email})`}
+          >
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
