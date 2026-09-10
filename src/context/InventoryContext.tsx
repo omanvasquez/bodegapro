@@ -14,6 +14,7 @@ interface InventoryContextType {
   deleteProduct: (id: string) => void;
   unpackBulk: (productId: string, packsToUnpack: number) => { success: boolean; message: string };
   recordWaste: (productId: string, quantity: number, reason: WasteReason, notes?: string) => void;
+  clearAllWastes: () => void;
   getProductPriceUSD: (product: Product) => number;
   getProductPriceVES: (product: Product) => number;
   adjustStock: (productId: string, quantityDelta: number) => void;
@@ -180,6 +181,11 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dbInit.saveWastes(updatedWastes);
   };
 
+  const clearAllWastes = () => {
+    setWastes([]);
+    dbInit.saveWastes([]);
+  };
+
   return (
     <InventoryContext.Provider
       value={{
@@ -190,6 +196,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         deleteProduct,
         unpackBulk,
         recordWaste,
+        clearAllWastes,
         getProductPriceUSD,
         getProductPriceVES,
         adjustStock,

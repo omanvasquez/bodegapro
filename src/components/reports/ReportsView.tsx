@@ -47,15 +47,22 @@ const categoryMeta: Record<string, { label: string; icon: string; bg: string; te
   otro: { label: 'Otro Imprevisto', icon: '📦', bg: 'bg-slate-100', text: 'text-slate-800' },
 };
 
+const wasteReasonMeta: Record<string, { label: string; icon: string; bg: string; text: string }> = {
+  consumo_propio: { label: 'Consumo Propio', icon: '👤', bg: 'bg-blue-100', text: 'text-blue-800' },
+  danado: { label: 'Producto Dañado', icon: '⚠️', bg: 'bg-amber-100', text: 'text-amber-800' },
+  vencido: { label: 'Producto Vencido', icon: '⏳', bg: 'bg-rose-100', text: 'text-rose-800' },
+  otro: { label: 'Ajuste Inventario', icon: '📦', bg: 'bg-slate-100', text: 'text-slate-800' },
+};
+
 export const ReportsView: React.FC = () => {
   const { dailySummary, weeklySalesData, weeklySummary, topSellingProducts, monthlySummary, sales, clearAllCalculations } = useReports();
-  const { products } = useInventory();
+  const { products, wastes } = useInventory();
   const { effectiveRate } = useCurrency();
   const { tenant } = useAuth();
   const { todayExpenses, deleteExpense, todayExpensesByMethod } = useExpenses();
 
   const [activeReportTab, setActiveReportTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets' | 'expenses'>('products');
+  const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets' | 'expenses' | 'wastes'>('products');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
@@ -117,6 +124,46 @@ export const ReportsView: React.FC = () => {
     return Math.round(todayProductsSummary.reduce((acc, p) => acc + p.quantity, 0) * 100) / 100;
   }, [todayProductsSummary]);
 
+  // Mermas y consumo propio de hoy
+  const todayWastes = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = today.getTime();
+    return wastes.filter((w) => w.timestamp >= startOfToday);
+  }, [wastes]);
+
+  const todayWastesCostUSD = useMemo(() => {
+    return Math.round(todayWastes.reduce((acc, w) => acc + w.costUSD, 0) * 100) / 100;
+  }, [todayWastes]);
+
+  const todayWastesCostVES = useMemo(() => {
+    return Math.round(todayWastesCostUSD * effectiveRate * 100) / 100;
+  }, [todayWastesCostUSD, effectiveRate]);
+
+  // Mermas y consumo propio últimos 7 días
+  const weekWastes = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const startOfSevenDays = sevenDaysAgo.getTime();
+    return wastes.filter((w) => w.timestamp >= startOfSevenDays);
+  }, [wastes]);
+
+  const weekWastesCostUSD = useMemo(() => {
+    return Math.round(weekWastes.reduce((acc, w) => acc + w.costUSD, 0) * 100) / 100;
+  }, [weekWastes]);
+
+  // Mermas y consumo propio del mes en curso
+  const monthlyWastes = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return wastes.filter((w) => w.timestamp >= startOfMonth);
+  }, [wastes]);
+
+  const monthlyWastesCostUSD = useMemo(() => {
+    return Math.round(monthlyWastes.reduce((acc, w) => acc + w.costUSD, 0) * 100) / 100;
+  }, [monthlyWastes]);
+
   // Total inventory valuation at replacement cost
   const inventoryValuationUSD = Math.round(
     products.reduce((acc, p) => acc + p.costUSD * p.stock, 0) * 100
@@ -131,6 +178,13 @@ export const ReportsView: React.FC = () => {
         description: e.description,
         amountUSD: e.amountUSD,
         category: e.category,
+      })),
+      todayWastes.map((w) => ({
+        productName: w.productName,
+        quantity: w.quantity,
+        unit: w.unit,
+        costUSD: w.costUSD,
+        reason: wasteReasonMeta[w.reason]?.label || w.reason,
       }))
     );
     openWhatsAppLink(tenant?.phone || '', text);
@@ -256,7 +310,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Main KPI Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Facturación Total
@@ -281,6 +335,18 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
+              <div className="p-3.5 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
+                  Mermas / Consumo
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-amber-700 block mt-1">
+                  -${todayWastesCostUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-amber-600 font-semibold block mt-0.5 truncate">
+                  Bs {todayWastesCostVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })} • {todayWastes.length} {todayWastes.length === 1 ? 'salida' : 'salidas'}
+                </span>
+              </div>
+
               <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
                   Ganancia Neta Real
@@ -293,7 +359,7 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Tickets Emitidos
                 </span>
@@ -467,6 +533,18 @@ export const ReportsView: React.FC = () => {
                     >
                       <MinusCircle className="w-3.5 h-3.5 text-rose-600" />
                       <span>Gastos ({todayExpenses.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDailyHistoryView('wastes')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 ${
+                        dailyHistoryView === 'wastes'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Mermas ({todayWastes.length})</span>
                     </button>
                   </div>
 
@@ -747,6 +825,88 @@ export const ReportsView: React.FC = () => {
                   )}
                 </div>
               )}
+
+              {/* VISTA 4: MERMAS, DAÑADOS Y CONSUMO PROPIO */}
+              {dailyHistoryView === 'wastes' && (
+                <div className="space-y-3">
+                  {todayWastes.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 space-y-1">
+                      <AlertTriangle className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs font-semibold">
+                        No se han registrado mermas ni salidas de consumo el día de hoy.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-xs font-bold text-amber-900 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                        <span>Costo total en mermas y salidas hoy:</span>
+                        <span className="font-black text-sm">
+                          -${todayWastesCostUSD.toFixed(2)} (Bs {todayWastesCostVES.toLocaleString('es-VE', { minimumFractionDigits: 2 })})
+                        </span>
+                      </div>
+
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        {todayWastes.map((waste) => {
+                          const meta = wasteReasonMeta[waste.reason] || wasteReasonMeta.otro;
+                          const timeStr = new Date(waste.timestamp).toLocaleTimeString('es-VE', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          });
+                          const vesAmount = Math.round(waste.costUSD * effectiveRate * 100) / 100;
+
+                          return (
+                            <div key={waste.id} className="p-3 hover:bg-slate-50/80 transition flex items-center justify-between gap-2">
+                              <div className="flex items-center space-x-3 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200 font-bold text-xs">
+                                  {meta.icon}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center space-x-2 flex-wrap">
+                                    <h5 className="font-bold text-xs sm:text-sm text-slate-800 truncate">
+                                      {waste.productName}
+                                    </h5>
+                                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md ${meta.bg} ${meta.text}`}>
+                                      {meta.label}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-2 text-[10px] text-slate-400 mt-0.5">
+                                    <span className="flex items-center space-x-1">
+                                      <Clock className="w-3 h-3" />
+                                      <span>{timeStr}</span>
+                                    </span>
+                                    <span>•</span>
+                                    <span className="font-bold text-slate-600">
+                                      Cantidad: -{waste.quantity} {waste.unit}
+                                    </span>
+                                    {waste.notes && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="italic text-slate-500 truncate max-w-[150px]">
+                                          "{waste.notes}"
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="text-right shrink-0">
+                                <span className="font-black text-amber-700 text-sm block">
+                                  -${waste.costUSD.toFixed(2)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-semibold block">
+                                  Bs {vesAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -777,7 +937,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Main KPI Cards (Semana) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Facturación 7 Días
@@ -802,6 +962,18 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
+              <div className="p-3.5 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
+                  Mermas 7 Días
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-amber-700 block mt-1">
+                  -${weekWastesCostUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-amber-600 font-semibold block mt-0.5 truncate">
+                  Bs {(weekWastesCostUSD * effectiveRate).toLocaleString('es-VE', { minimumFractionDigits: 2 })} • {weekWastes.length} {weekWastes.length === 1 ? 'salida' : 'salidas'}
+                </span>
+              </div>
+
               <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
                   Ganancia Neta Real
@@ -814,7 +986,7 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Ticket Promedio
                 </span>
@@ -1069,7 +1241,7 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Main KPI Cards (Mes) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Facturación del Mes
@@ -1094,6 +1266,18 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
+              <div className="p-3.5 bg-white rounded-2xl border border-amber-200 bg-amber-50/20 shadow-sm">
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 uppercase tracking-wider block">
+                  Mermas del Mes
+                </span>
+                <span className="text-xl sm:text-2xl font-black text-amber-700 block mt-1">
+                  -${monthlyWastesCostUSD.toFixed(2)}
+                </span>
+                <span className="text-[10px] sm:text-xs text-amber-600 font-semibold block mt-0.5 truncate">
+                  Bs {(monthlyWastesCostUSD * effectiveRate).toLocaleString('es-VE', { minimumFractionDigits: 2 })} • {monthlyWastes.length} {monthlyWastes.length === 1 ? 'salida' : 'salidas'}
+                </span>
+              </div>
+
               <div className="p-3.5 bg-white rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
                 <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">
                   Utilidad Neta Real
@@ -1106,7 +1290,7 @@ export const ReportsView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm">
+              <div className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-sm col-span-2 sm:col-span-1">
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Venta Diaria Promedio
                 </span>
@@ -1296,6 +1480,18 @@ export const ReportsView: React.FC = () => {
                       </div>
                       <span className="text-[10px] text-emerald-700 font-bold">Antes de gastos</span>
                     </div>
+
+                    <div className="p-3 rounded-xl bg-amber-50/60 border border-amber-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">
+                          Mermas y Consumo del Mes
+                        </span>
+                        <span className="text-base font-black text-amber-700">
+                          -${monthlyWastesCostUSD.toFixed(2)}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-amber-700 font-bold">{monthlyWastes.length} salidas registradas</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1352,6 +1548,7 @@ export const ReportsView: React.FC = () => {
                   <li>Todos los cálculos del informe <strong>Diario, Semanal y Mensual</strong>.</li>
                   <li>Arqueo de caja (Efectivo $, Efectivo Bs, Pago Móvil y Punto de Venta).</li>
                   <li>El historial de gastos registrados de caja.</li>
+                  <li>El historial de mermas y salidas de consumo del ciclo anterior.</li>
                   <li>Las deudas de las <strong>personas que deben fiado</strong> volverán a <strong>$0.00</strong>.</li>
                 </ul>
               </div>

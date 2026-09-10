@@ -98,7 +98,7 @@ const ReportsContext = createContext<ReportsContextType | undefined>(undefined);
 export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sales, setSales] = useState<SaleTicket[]>(() => dbInit.getSales());
   const { effectiveRate, rates, isOverride } = useCurrency();
-  const { products, adjustStock } = useInventory();
+  const { products, adjustStock, clearAllWastes } = useInventory();
   const { recordCharge, transactions, resetAllDebtsAndTransactions } = useCustomers();
   const { expenses, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod, clearAllExpenses } = useExpenses();
   const { tenant } = useAuth();
@@ -243,9 +243,10 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSales([]);
     dbInit.saveSales([]);
 
-    // Clear expenses, debts, and transactions
+    // Clear expenses, debts, transactions, and wastes
     clearAllExpenses();
     resetAllDebtsAndTransactions();
+    clearAllWastes();
 
     if (db && tenant?.id) {
       oldSales.forEach((s) => {

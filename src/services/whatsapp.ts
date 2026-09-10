@@ -110,7 +110,8 @@ export function generateDailyClosingWhatsApp(
   },
   storeName: string,
   productsSold?: { name: string; quantity: number; unit: string; totalUSD: number }[],
-  expensesList?: { description: string; amountUSD: number; category: string }[]
+  expensesList?: { description: string; amountUSD: number; category: string }[],
+  wastesList?: { productName: string; quantity: number; unit: string; costUSD: number; reason: string }[]
 ): string {
   let productsBlock = '';
   if (productsSold && productsSold.length > 0) {
@@ -129,6 +130,15 @@ export function generateDailyClosingWhatsApp(
     expensesBlock = `\n\n💸 *Salidas / Gastos de Caja (-$${(summary.expensesUSD || 0).toFixed(2)}):*\n${list}`;
   }
 
+  let wastesBlock = '';
+  if (wastesList && wastesList.length > 0) {
+    const totalWasteCost = wastesList.reduce((acc, w) => acc + w.costUSD, 0);
+    const list = wastesList
+      .map((w) => `• ${w.quantity} ${w.unit} × ${w.productName} (-$${w.costUSD.toFixed(2)}) [${w.reason}]`)
+      .join('\n');
+    wastesBlock = `\n\n⚠️ *Mermas / Consumo Propio (-$${totalWasteCost.toFixed(2)}):*\n${list}`;
+  }
+
   const text = `📊 *CIERRE DIARIO - ${storeName}*
 📅 Fecha: ${summary.date}
 
@@ -143,7 +153,7 @@ ${summary.expensesUSD ? `💸 *Total Gastos de Caja:* -$${summary.expensesUSD.to
 
 📝 *Balance de Fiados:*
 - Fiados concedidos hoy: $${summary.creditIssuedUSD.toFixed(2)}
-- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}${expensesBlock}${productsBlock}
+- Abonos cobrados hoy: $${summary.creditCollectedUSD.toFixed(2)}${expensesBlock}${wastesBlock}${productsBlock}
 
 Generado automáticamente por BodegaPro.`;
 
