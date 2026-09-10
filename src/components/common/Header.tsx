@@ -161,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenSuperAdmin}
               className="flex items-center space-x-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-2.5 py-1.5 rounded-xl text-xs font-bold transition"
-              title="Panel Superadmin de Suscripciones"
+              title="Panel de Administración"
             >
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <span className="hidden sm:inline">Admin</span>

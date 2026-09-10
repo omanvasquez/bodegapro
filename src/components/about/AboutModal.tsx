@@ -38,7 +38,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <div>
               <h2 className="text-xl font-black tracking-tight">BodegaPro</h2>
               <p className="text-xs text-brand-emerald-500 font-semibold uppercase tracking-wider">
-                Versión 1.0 • PWA & Web Desktop
+                Versión 1.0 • Gestión Comercial
               </p>
             </div>
           </div>
@@ -50,7 +50,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Desarrollado por</h3>
             <p className="text-lg font-black text-brand-slate-800">Oman Vásquez</p>
             <p className="text-xs text-slate-500 mt-0.5">
-              Software Architect & SaaS Builder • Edo. Cojedes, Venezuela
+              Software Architect • Cojedes, Venezuela
             </p>
           </div>
 
@@ -58,7 +58,7 @@ export const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <p className="flex items-start space-x-2">
               <ShieldCheck className="w-4 h-4 text-brand-emerald-600 shrink-0 mt-0.5" />
               <span>
-                <strong>BodegaPro</strong> es un SaaS comercial diseñado para optimizar bodegas y comercios populares mediante inventario con doble anclaje (USD/Bs), punto de venta offline-first y micro-ledger de fiados inmutable.
+                <strong>BodegaPro</strong> es una solución de gestión comercial diseñada para optimizar bodegas y comercios mediante control de inventario con doble anclaje (USD/Bs), punto de venta offline-first y registro de cuentas de clientes.
               </span>
             </p>
           </div>

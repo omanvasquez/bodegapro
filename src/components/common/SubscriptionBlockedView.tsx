@@ -8,7 +8,7 @@ export const SubscriptionBlockedView: React.FC = () => {
 
   const handleContactWhatsApp = () => {
     const text = encodeURIComponent(
-      `Hola Oman, deseo renovar la suscripción de mi negocio en BodegaPro.\nNegocio: ${tenant.name}\nCorreo: ${tenant.ownerEmail}\nID: ${tenant.id}`
+      `Hola, solicito la reactivación del acceso a mi cuenta comercial en BodegaPro.\nComercio: ${tenant?.name || ''}\nCorreo: ${tenant?.ownerEmail || ''}\nID: ${tenant?.id || ''}`
     );
     openWhatsAppLink('584124169949', text);
   };
@@ -22,13 +22,13 @@ export const SubscriptionBlockedView: React.FC = () => {
 
         <div className="space-y-1">
           <span className="text-xs font-bold text-rose-400 uppercase tracking-widest">
-            Suscripción Inactiva
+            Acceso Comercial Inactivo
           </span>
           <h2 className="text-2xl font-black tracking-tight text-white">
-            {tenant.name}
+            {tenant?.name}
           </h2>
           <p className="text-xs text-slate-400 mt-2">
-            El período de prueba o mensualidad de BodegaPro para este comercio ha finalizado.
+            El período de acceso autorizado para este comercio requiere validación o reactivación administrativa.
           </p>
         </div>
 
@@ -38,7 +38,7 @@ export const SubscriptionBlockedView: React.FC = () => {
             <span>Tus datos e inventario están 100% seguros</span>
           </p>
           <p className="text-slate-400 text-[11px] leading-relaxed">
-            Para reactivar tu acceso al punto de venta e informes, contáctate directamente con soporte para confirmar tu pago mensual ($4 - $5 USD vía Pago Móvil o Efectivo).
+            Para reactivar tu acceso al punto de venta y módulos administrativos, comunícate directamente con el administrador para autorizar la cuenta de tu comercio.
           </p>
         </div>
 
@@ -47,11 +47,11 @@ export const SubscriptionBlockedView: React.FC = () => {
           className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm flex items-center justify-center space-x-2 shadow-lg transition active:scale-95"
         >
           <MessageCircle className="w-5 h-5" />
-          <span>Reactivar por WhatsApp (+58 412-4169949)</span>
+          <span>Solicitar Reactivación por WhatsApp</span>
         </button>
 
         <p className="text-[11px] text-slate-500">
-          BodegaPro • Desarrollado por Oman Vásquez
+          BodegaPro • Plataforma de Gestión Comercial
         </p>
       </div>
     </div>

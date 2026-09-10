@@ -105,10 +105,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenAbout, onOpenS
       {/* Content */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4 max-w-2xl mx-auto w-full">
         
-        {/* Subscription Status Card */}
+        {/* Account Status Card */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-brand-emerald-600 flex items-center justify-center">
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -116,7 +116,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onOpenAbout, onOpenS
                 Estado de la Cuenta
               </span>
               <span className="text-sm font-black text-slate-900 capitalize block">
-                {tenant.status === 'trial' ? `Período de Prueba (${trialDaysRemaining} días restantes)` : 'Suscripción Activa'}
+                {tenant.status === 'trial' ? `Acceso Temporal (${trialDaysRemaining} días restantes)` : 'Licencia Comercial Activa'}
               </span>
             </div>
           </div>

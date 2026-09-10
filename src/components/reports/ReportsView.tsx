@@ -18,7 +18,11 @@ import {
   Clock,
   MinusCircle,
   Plus,
-  Trash2
+  Trash2,
+  RotateCcw,
+  AlertTriangle,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import { useReports } from '../../context/ReportsContext';
 import { useInventory } from '../../context/InventoryContext';
@@ -44,7 +48,7 @@ const categoryMeta: Record<string, { label: string; icon: string; bg: string; te
 };
 
 export const ReportsView: React.FC = () => {
-  const { dailySummary, weeklySalesData, weeklySummary, topSellingProducts, monthlySummary, sales } = useReports();
+  const { dailySummary, weeklySalesData, weeklySummary, topSellingProducts, monthlySummary, sales, clearAllCalculations } = useReports();
   const { products } = useInventory();
   const { effectiveRate } = useCurrency();
   const { tenant } = useAuth();
@@ -53,6 +57,17 @@ export const ReportsView: React.FC = () => {
   const [activeReportTab, setActiveReportTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dailyHistoryView, setDailyHistoryView] = useState<'products' | 'tickets' | 'expenses'>('products');
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState<boolean>(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+
+  const handleConfirmReset = () => {
+    clearAllCalculations();
+    setIsResetModalOpen(false);
+    setResetSuccessMessage('✓ Cálculos reiniciados exitosamente. El inventario y tus clientes permanecen intactos.');
+    setTimeout(() => {
+      setResetSuccessMessage(null);
+    }, 5000);
+  };
 
   // Ventas de hoy
   const todaySales = useMemo(() => {
@@ -150,43 +165,70 @@ export const ReportsView: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab pills */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+        {/* Actions & Tab switcher */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setActiveReportTab('daily')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              activeReportTab === 'daily'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+            onClick={() => setIsResetModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50/80 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center space-x-1.5 transition shadow-2xs cursor-pointer active:scale-95"
+            title="Poner en cero todos los cálculos, ventas, gastos y deudas de fiado para iniciar un nuevo ciclo"
           >
-            Diario (Cierre)
+            <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
+            <span>Limpiar Cálculos</span>
           </button>
-          <button
-            onClick={() => setActiveReportTab('weekly')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              activeReportTab === 'weekly'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Semanal
-          </button>
-          <button
-            onClick={() => setActiveReportTab('monthly')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              activeReportTab === 'monthly'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Mensual
-          </button>
+
+          {/* Tab pills */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+            <button
+              onClick={() => setActiveReportTab('daily')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                activeReportTab === 'daily'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Diario (Cierre)
+            </button>
+            <button
+              onClick={() => setActiveReportTab('weekly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                activeReportTab === 'weekly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Semanal
+            </button>
+            <button
+              onClick={() => setActiveReportTab('monthly')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                activeReportTab === 'monthly'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Mensual
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content Area */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4">
+        {/* Banner de confirmación de reinicio exitoso */}
+        {resetSuccessMessage && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 font-bold flex items-center justify-between shadow-xs animate-fade-in max-w-4xl mx-auto">
+            <div className="flex items-center space-x-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{resetSuccessMessage}</span>
+            </div>
+            <button
+              onClick={() => setResetSuccessMessage(null)}
+              className="text-emerald-700 hover:text-emerald-900 text-xs px-2 py-0.5 rounded-lg hover:bg-emerald-100/50"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         
         {/* ================= INFORME DIARIO ================= */}
         {activeReportTab === 'daily' && (
@@ -1272,6 +1314,81 @@ export const ReportsView: React.FC = () => {
           isOpen={isExpenseModalOpen}
           onClose={() => setIsExpenseModalOpen(false)}
         />
+      )}
+
+      {/* Modal de Confirmación para Reiniciar Cálculos */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden flex flex-col animate-scale-up">
+            
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-br from-rose-50 via-white to-amber-50 border-b border-rose-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-xs">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">
+                    ¿Reiniciar Cálculos de la App?
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    Iniciar un nuevo ciclo contable desde este momento
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs text-slate-600">
+              <p className="font-medium text-slate-700">
+                Esta acción te permite poner en cero las métricas de venta y arqueo para comenzar a calcular desde cero cuando lo desees:
+              </p>
+
+              <div className="p-3.5 bg-rose-50/60 rounded-2xl border border-rose-200 space-y-2">
+                <span className="font-black text-rose-900 uppercase tracking-wider text-[10px] block">
+                  Se pondrá en cero ($0.00):
+                </span>
+                <ul className="space-y-1.5 text-slate-700 font-medium list-disc list-inside">
+                  <li>Todos los cálculos del informe <strong>Diario, Semanal y Mensual</strong>.</li>
+                  <li>Arqueo de caja (Efectivo $, Efectivo Bs, Pago Móvil y Punto de Venta).</li>
+                  <li>El historial de gastos registrados de caja.</li>
+                  <li>Las deudas de las <strong>personas que deben fiado</strong> volverán a <strong>$0.00</strong>.</li>
+                </ul>
+              </div>
+
+              <div className="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-2">
+                <div className="flex items-center space-x-1.5 text-emerald-900 font-black uppercase tracking-wider text-[10px]">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Totalmente Protegido (NO se borra):</span>
+                </div>
+                <ul className="space-y-1 text-emerald-800 font-medium list-disc list-inside">
+                  <li><strong>Tu inventario:</strong> Todos los productos, existencias en stock, costos y precios quedan intactos.</li>
+                  <li><strong>Fichas de clientes:</strong> Los nombres, teléfonos y datos de las personas registradas se conservan.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end space-x-2.5">
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReset}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-black text-xs flex items-center space-x-1.5 shadow-md shadow-rose-600/20 transition cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Sí, Reiniciar a Cero</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
       )}
     </div>
   );

@@ -54,7 +54,7 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
             <div>
               <h2 className="text-lg font-black tracking-tight">Panel Superadmin</h2>
               <p className="text-xs text-amber-300">
-                Aprobación y Control de Suscripciones • Oman Vásquez
+                Control de Accesos y Comercios • Administración
               </p>
             </div>
           </div>
@@ -91,7 +91,7 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
                 filter === 'activos' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-600 border'
               }`}
             >
-              Activos / Prueba
+              Activos / Temporales
             </button>
             <button
               onClick={() => setFilter('inactivos')}
@@ -158,14 +158,14 @@ export const SuperAdminModal: React.FC<SuperAdminModalProps> = ({ isOpen, onClos
                           className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm flex items-center space-x-1"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
-                          <span>Aprobar Prueba (14d)</span>
+                          <span>Acceso Temporal (14d)</span>
                         </button>
                         <button
                           onClick={() => updateTenantStatus(tenant.id, 'activo')}
                           className="px-3 py-1.5 rounded-xl bg-brand-emerald-600 hover:bg-brand-emerald-700 text-white text-xs font-bold transition shadow-sm flex items-center space-x-1"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Activar Plan</span>
+                          <span>Habilitar Acceso</span>
                         </button>
                       </>
                     )}

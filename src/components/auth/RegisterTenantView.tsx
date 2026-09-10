@@ -32,10 +32,10 @@ export const RegisterTenantView: React.FC = () => {
             <Store className="w-7 h-7" />
           </div>
           <h2 className="text-2xl font-black text-white tracking-tight">
-            Registra tu Bodega
+            Registra tu Comercio
           </h2>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
-            Indica los datos de tu comercio para generar tu cuenta y solicitar la activación de tu prueba.
+            Indica los datos de tu comercio para dar de alta tu cuenta y validar tu acceso.
           </p>
         </div>
 
@@ -86,7 +86,7 @@ export const RegisterTenantView: React.FC = () => {
               className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand-emerald-500"
             />
             <span className="text-[10px] text-slate-500 block">
-              Se usará para enlazar el envío de recibos y comunicarte con Oman Vásquez.
+              Se usará para enlazar el envío de comprobantes y comunicarte con el soporte.
             </span>
           </div>
 

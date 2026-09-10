@@ -28,6 +28,7 @@ interface CustomersContextType {
     notes?: string
   ) => { success: boolean; message: string; customer?: Customer };
   getCustomerTransactions: (customerId: string) => CreditTransaction[];
+  resetAllDebtsAndTransactions: () => void;
 }
 
 const CustomersContext = createContext<CustomersContextType | undefined>(undefined);
@@ -304,6 +305,30 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return transactions.filter((t) => t.customerId === customerId);
   };
 
+  const resetAllDebtsAndTransactions = () => {
+    const updatedCustomers = customers.map((c) => ({
+      ...c,
+      currentDebtUSD: 0,
+      positiveBalanceUSD: 0,
+      updatedAt: Date.now(),
+    }));
+
+    const currentTx = [...transactions];
+    setCustomers(updatedCustomers);
+    setTransactions([]);
+    dbInit.saveCustomers(updatedCustomers);
+    dbInit.saveTransactions([]);
+
+    if (db && tenant?.id) {
+      updatedCustomers.forEach((c) => {
+        setDoc(doc(db, 'tenants', tenant.id, 'customers', c.id), c).catch(() => {});
+      });
+      currentTx.forEach((tx) => {
+        deleteDoc(doc(db, 'tenants', tenant.id, 'transactions', tx.id)).catch(() => {});
+      });
+    }
+  };
+
   return (
     <CustomersContext.Provider
       value={{
@@ -315,6 +340,7 @@ export const CustomersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         recordCharge,
         recordPayment,
         getCustomerTransactions,
+        resetAllDebtsAndTransactions,
       }}
     >
       {children}

@@ -7,10 +7,11 @@ import { useCustomers } from './CustomersContext';
 import { useExpenses } from './ExpensesContext';
 import { useAuth } from './AuthContext';
 import { db } from '../services/firebase';
-import { collection, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 interface ReportsContextType {
   sales: SaleTicket[];
+  clearAllCalculations: () => void;
   recordSale: (params: {
     items: {
       productId: string;
@@ -98,8 +99,8 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sales, setSales] = useState<SaleTicket[]>(() => dbInit.getSales());
   const { effectiveRate, rates, isOverride } = useCurrency();
   const { products, adjustStock } = useInventory();
-  const { recordCharge, transactions } = useCustomers();
-  const { expenses, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod } = useExpenses();
+  const { recordCharge, transactions, resetAllDebtsAndTransactions } = useCustomers();
+  const { expenses, todayTotalExpensesUSD, todayTotalExpensesVES, todayExpensesByMethod, clearAllExpenses } = useExpenses();
   const { tenant } = useAuth();
 
   // Sincronización en segundo plano de tickets de venta (Offline-First)
@@ -235,6 +236,22 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     return newTicket;
+  };
+
+  const clearAllCalculations = () => {
+    const oldSales = [...sales];
+    setSales([]);
+    dbInit.saveSales([]);
+
+    // Clear expenses, debts, and transactions
+    clearAllExpenses();
+    resetAllDebtsAndTransactions();
+
+    if (db && tenant?.id) {
+      oldSales.forEach((s) => {
+        deleteDoc(doc(db, 'tenants', tenant.id, 'sales', s.id)).catch(() => {});
+      });
+    }
   };
 
   // Resumen Diario (Hoy)
@@ -560,6 +577,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         sales,
         recordSale,
+        clearAllCalculations,
         dailySummary,
         weeklySalesData,
         weeklySummary,

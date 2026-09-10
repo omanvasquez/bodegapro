@@ -8,7 +8,7 @@ export const PendingApprovalView: React.FC = () => {
 
   const handleContactWhatsApp = () => {
     const text = encodeURIComponent(
-      `Hola Oman, me acabo de registrar en BodegaPro:\n• Bodega: ${tenant.name}\n• Encargado: ${tenant.ownerName}\n• Correo: ${user?.email}\n• Teléfono: ${tenant.phone}\nPor favor activa mi acceso o mi período de prueba gratuita.`
+      `Hola, acabo de registrar los datos de mi comercio en BodegaPro:\n• Comercio: ${tenant?.name || ''}\n• Encargado: ${tenant?.ownerName || ''}\n• Correo: ${user?.email || ''}\n• Teléfono: ${tenant?.phone || ''}\nPor favor valida y autoriza mi acceso comercial.`
     );
     openWhatsAppLink('584124169949', text);
   };
@@ -30,7 +30,7 @@ export const PendingApprovalView: React.FC = () => {
             ¡Solicitud Recibida!
           </h2>
           <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-            Hemos registrado los datos de tu comercio en BodegaPro. Para comenzar a operar, tu cuenta debe ser aprobada por el administrador.
+            Hemos registrado los datos de tu comercio en BodegaPro. Para comenzar a operar, tu cuenta debe ser autorizada por el administrador.
           </p>
         </div>
 
@@ -38,12 +38,12 @@ export const PendingApprovalView: React.FC = () => {
         <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/80 text-left text-xs space-y-2">
           <div className="flex items-center space-x-2 text-white font-bold pb-1 border-b border-slate-700">
             <Store className="w-4 h-4 text-brand-emerald-400" />
-            <span className="truncate">{tenant.name}</span>
+            <span className="truncate">{tenant?.name}</span>
           </div>
           <div className="text-[11px] text-slate-400 space-y-1">
-            <p><strong>Encargado:</strong> {tenant.ownerName}</p>
+            <p><strong>Encargado:</strong> {tenant?.ownerName}</p>
             <p><strong>Correo:</strong> {user?.email}</p>
-            <p><strong>Teléfono:</strong> {tenant.phone}</p>
+            <p><strong>Teléfono:</strong> {tenant?.phone}</p>
           </div>
         </div>
 
@@ -54,11 +54,11 @@ export const PendingApprovalView: React.FC = () => {
             className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-sm flex items-center justify-center space-x-2 shadow-xl shadow-emerald-900/30 transition active:scale-[0.98]"
           >
             <MessageCircle className="w-5 h-5 text-slate-950 fill-slate-950" />
-            <span>Contactar a Oman Vásquez por WhatsApp</span>
+            <span>Contactar al Administrador por WhatsApp</span>
           </button>
           
           <p className="text-[11px] text-slate-500">
-            Haz clic para enviar tus datos directamente a Oman y habilitar tus 14 días de prueba o plan activo.
+            Haz clic para notificar tus datos y solicitar la habilitación de tu comercio en la plataforma.
           </p>
         </div>
 

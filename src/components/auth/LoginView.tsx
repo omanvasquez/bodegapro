@@ -46,7 +46,7 @@ export const LoginView: React.FC = () => {
 
   const handleContactWhatsApp = () => {
     const text = encodeURIComponent(
-      'Hola Oman, tengo dudas sobre el acceso y activación de BodegaPro.'
+      'Hola, me comunico desde BodegaPro para solicitar información y activación de acceso para mi comercio.'
     );
     openWhatsAppLink('584124169949', text);
   };
@@ -63,7 +63,7 @@ export const LoginView: React.FC = () => {
           <div>
             <span className="text-lg font-black tracking-tight text-white">BodegaPro</span>
             <span className="text-[10px] ml-2 font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-              v1.0 PWA
+              v1.0
             </span>
           </div>
         </div>
@@ -85,7 +85,7 @@ export const LoginView: React.FC = () => {
             className="text-xs text-slate-400 hover:text-emerald-400 font-semibold flex items-center space-x-1 transition"
           >
             <HelpCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Soporte Oman Vásquez</span>
+            <span className="hidden sm:inline">Contacto y Soporte</span>
           </button>
         </div>
       </header>
@@ -98,18 +98,18 @@ export const LoginView: React.FC = () => {
           <div className="text-center space-y-3">
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>SaaS para Bodegas y Comercios</span>
+              <span>Gestión Comercial para Bodegas y Comercios</span>
             </div>
             
             <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-              Tu bodega bajo control, <br className="hidden sm:block" />
+              Tu negocio bajo control, <br className="hidden sm:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
                 sin enredos en caja.
               </span>
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm mx-auto">
-              Doble anclaje USD/Bs, cobros rápidos, fiados inmutables y tickets directos a WhatsApp sin impresoras.
+              Control de inventario con doble anclaje USD/Bs, punto de venta ágil, registro de cuentas de fiados y reportes diarios.
             </p>
           </div>
 
@@ -150,10 +150,13 @@ export const LoginView: React.FC = () => {
 
           {/* Login Card */}
           <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl space-y-4 text-center">
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-white">Acceso al Sistema</h3>
-              <p className="text-xs text-slate-400">
-                Inicia sesión con tu cuenta de Google para acceder o solicitar tu período de prueba.
+            <div className="space-y-1.5">
+              <div className="inline-block px-2.5 py-0.5 rounded-full bg-slate-800 text-[10px] font-bold text-slate-300 border border-slate-700">
+                Acceso Exclusivo / Por Invitación
+              </div>
+              <h3 className="text-base font-bold text-white">Ingreso al Sistema</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Inicia sesión con tu cuenta autorizada de Google para ingresar a tu comercio.
               </p>
             </div>
 
@@ -190,9 +193,19 @@ export const LoginView: React.FC = () => {
               <span>{isSubmitting ? 'Conectando...' : 'Iniciar Sesión con Google'}</span>
             </button>
 
-            <div className="pt-2 text-[11px] text-slate-500 flex items-center justify-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Acceso seguro mediante Google Authentication</span>
+            <div className="pt-2 flex flex-col items-center space-y-2.5">
+              <button
+                type="button"
+                onClick={handleContactWhatsApp}
+                className="text-xs text-brand-emerald-400 hover:text-brand-emerald-300 font-semibold underline underline-offset-4 transition"
+              >
+                ¿No tienes acceso aún? Solicita tu registro comercial aquí
+              </button>
+              
+              <div className="text-[11px] text-slate-500 flex items-center justify-center space-x-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Acceso seguro mediante Google Authentication</span>
+              </div>
             </div>
           </div>
         </div>
@@ -201,7 +214,7 @@ export const LoginView: React.FC = () => {
       {/* Footer */}
       <footer className="px-6 py-4 text-center border-t border-slate-900 text-xs text-slate-500">
         <p>
-          BodegaPro • Desarrollado por <strong>Oman Vásquez</strong> (+58 412-4169949)
+          BodegaPro • Plataforma de Gestión Comercial y Punto de Venta
         </p>
       </footer>
 

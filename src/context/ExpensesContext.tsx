@@ -17,6 +17,7 @@ interface ExpensesContextType {
     notes?: string;
   }) => Expense;
   deleteExpense: (id: string) => void;
+  clearAllExpenses: () => void;
   todayExpenses: Expense[];
   todayTotalExpensesUSD: number;
   todayTotalExpensesVES: number;
@@ -119,6 +120,18 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  const clearAllExpenses = () => {
+    const oldExpenses = [...expenses];
+    setExpenses([]);
+    dbInit.saveExpenses([]);
+
+    if (db && tenant?.id) {
+      oldExpenses.forEach((e) => {
+        deleteDoc(doc(db, 'tenants', tenant.id, 'expenses', e.id)).catch(() => {});
+      });
+    }
+  };
+
   // Gastos de hoy
   const todayExpenses = useMemo(() => {
     const today = new Date();
@@ -164,6 +177,7 @@ export const ExpensesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         expenses,
         addExpense,
         deleteExpense,
+        clearAllExpenses,
         todayExpenses,
         todayTotalExpensesUSD,
         todayTotalExpensesVES,
